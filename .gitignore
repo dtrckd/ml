@@ -3,6 +3,10 @@
 
 .idea
 
+data/lut
+data/plot
+data/text
+
 # Build file
 __pycache__/
 *.py[co]
