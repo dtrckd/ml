@@ -48,6 +48,11 @@ class RandomGraphModel(ModelBase):
 
         self.log.info("Fitting `%s' model" % (type(self)))
 
+    # for conveniance (self._params...)
+    def _reduce_latent(self):
+        return self._theta, self._phi
+
+
     # the Binaray case (Bernoulli model)
     def likelihood(self, theta=None, phi=None, data='valid'):
         """ Compute data likelihood (abrev. ll) with the given estimators
@@ -102,55 +107,60 @@ class RandomGraphModel(ModelBase):
         return qijs
 
 
-    def compute_entropy(self, theta=None, phi=None, **kws):
-        if 'data' in kws:
-            pij = kws['data']['ll']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pij = self.likelihood(theta, phi)
+    def compute_entropy(self, theta=None, phi=None, data='valid', **kws):
+        if theta is None:
+            theta, phi = self._reduce_latent()
+        qij = self.likelihood(theta, phi, data)
+        data = getattr(self, 'data_'+data)
 
-        ll = pij
+        ll = qij
 
         # Log-likelihood (Perplexity is 2**H(X).)
         ll[ll<=1e-300] = 1e-200
         ll = np.log(ll).sum()
         return ll
 
-    def compute_roc(self, theta=None, phi=None, **kws):
-        if 'data' in kws:
-            pp = kws['data']['pp']
-            data = kws['data']['d']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pp = self.posterior(theta, phi)
-            data = self.data_test
+    def compute_roc(self, theta=None, phi=None, data='test', **kws):
+        if theta is None:
+            theta, phi = self._reduce_latent()
+        qij = self.posterior(theta, phi, data)
+        data = getattr(self, 'data_'+data)
 
-        weights = np.squeeze(data[:,2].T)
-        y_true = weights.astype(bool)*1
+        self._y_true = np.squeeze(data[:,2].T).astype(bool)*1
+        self._probas = qij
 
-        self._y_true = y_true
-        self._probas = pp
-
-        fpr, tpr, thresholds = roc_curve(y_true, pp)
+        fpr, tpr, thresholds = roc_curve(self._y_true, self._probas)
         roc = auc(fpr, tpr)
         return roc
-
-
 
     def compute_pr(self, *args, **kwargs):
         # @Warning: have to be computed after compute_roc.
         # should ba place after roc string in {_format}.
         return average_precision_score(self._y_true, self._probas)
 
+    def compute_wsim(self, theta=None, phi=None, data='test', **kws):
+        if theta is None:
+            theta, phi = self._reduce_latent()
+        qij = self.posterior(theta, phi, data)
+        data = getattr(self, 'data_'+data)
+
+        wd = data[:,2].T
+        ws = qij
+
+        idx = wd > 0
+        wd = wd[idx]
+        ws = ws[idx]
+
+        ## l1 norm
+        #nnz = len(wd)
+        #mean_dist = np.abs(ws - wd).sum() / nnz
+        ## L2 norm
+        mean_dist = mean_squared_error(wd, ws)
+
+        return mean_dist
 
     def get_ytrue_probas(self):
         return self._y_true, self._probas
-
-    # for conveniance (self._params...)
-    def _reduce_latent(self):
-        return self._theta, self._phi
 
 
 ### @DEPRECATED

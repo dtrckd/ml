@@ -84,7 +84,7 @@ class Plot(ExpeFormat):
 
         data = self.load_some()
         if not data:
-            self.log.debug('No data for expe : %s' % self.output_path)
+            self.log.warning('No data for expe : %s' % self.output_path)
             return
 
         values = data[attribute]
@@ -112,7 +112,7 @@ class Plot(ExpeFormat):
 
         data = self.load_some()
         if not data:
-            self.log.debug('No data for expe : %s' % self.output_path)
+            self.log.warning('No data for expe : %s' % self.output_path)
             return
 
         values = data[attribute]
@@ -133,7 +133,7 @@ class Plot(ExpeFormat):
 
         data = self.load_some()
         if not data:
-            self.log.debug('No data for expe : %s' % self.output_path)
+            self.log.warning('No data for expe : %s' % self.output_path)
             return
 
         try:
@@ -245,7 +245,7 @@ class Plot(ExpeFormat):
         expe = self.expe
         data = self.load_some()
         if not data:
-            self.log.debug('No data for expe : %s' % self.output_path)
+            self.log.warning('No data for expe : %s' % self.output_path)
             data = {}
 
         value = self._extract_data(z, data)
@@ -322,7 +322,7 @@ class Plot(ExpeFormat):
 
         data = self.load_some()
         if not data:
-            self.log.debug('No data for expe : %s' % self.output_path)
+            self.log.warning('No data for expe : %s' % self.output_path)
             return
 
         array = self.D.array

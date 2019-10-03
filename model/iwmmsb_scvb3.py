@@ -23,7 +23,7 @@ nbinom_pmf = sp.stats.nbinom.pmf
 
 class iwmmsb_scvb3(RandomGraphModel):
 
-    _purge = ['_kernel', '_lut_nbinom', '_likelihood']
+    _purge = ['_kernel', '_likelihood']
 
     def _init_params(self, frontend):
         self.frontend = frontend
@@ -211,7 +211,6 @@ class iwmmsb_scvb3(RandomGraphModel):
 
         self._k = self.N_Y + self.hyper_phi[0]
         self._p = self.hyper_phi[2] /( self.hyper_phi[2] * self.N_phi + 1)
-        #self._phi = lambda x:sp.stats.nbinom.pmf(x, k, 1-p)
         self._phi = self._k*self._p / (1-self._p)
 
         #mean = k*p / (1-p)
@@ -237,7 +236,6 @@ class iwmmsb_scvb3(RandomGraphModel):
             def _kernel(x):
                 return nbinom_pmf(x, k, 1-p)
             self._kernel = _kernel
-
 
             if self._hyper_phi == 'auto':
                 N = len(self.pik)
@@ -325,7 +323,7 @@ class iwmmsb_scvb3(RandomGraphModel):
         if data == 'valid':
             data = self.data_valid
         elif data == 'test':
-            data = self.data_valid
+            data = self.data_test
 
         @lru_cache(maxsize=1000, typed=False)
         def _likelihood(x):
@@ -343,15 +341,11 @@ class iwmmsb_scvb3(RandomGraphModel):
         return ll
 
 
-    def compute_roc(self, theta=None, phi=None, treshold=None, **kws):
-        if 'data' in kws:
-            pp = kws['data']['pp']
-            data = kws['data']['d']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pp = self.posterior(theta, phi)
-            data = self.data_test
+    def compute_roc(self, theta=None, phi=None, treshold=None, data='test', **kws):
+        if theta is None:
+            theta, phi = self._reduce_latent()
+        qij = self.posterior(theta, phi, data)
+        data = getattr(self, 'data_'+data)
 
         weights = np.squeeze(data[:,2].T)
 
@@ -373,38 +367,23 @@ class iwmmsb_scvb3(RandomGraphModel):
 
         trsh = trsh if trsh>=0 else 1
 
+        if not hasattr(self, '_likelihood'):
+
+            @lru_cache(maxsize=1000, typed=False)
+            def _likelihood(x):
+                return nbinom_pmf(x, self._k, 1-self._p)
+
+            self._likelihood = _likelihood
+
         pij = np.array([1 - sum([theta[i].dot(self._likelihood(v)).dot(theta[j]) for v in range(trsh)]) for i,j,_ in data])
 
-        y_true = weights.astype(bool)*1
 
-        self._y_true = y_true
+        self._y_true = weights.astype(bool)*1
         self._probas = pij
 
-        fpr, tpr, thresholds = roc_curve(y_true, self._probas)
+        fpr, tpr, thresholds = roc_curve(self._y_true, self._probas)
         roc = auc(fpr, tpr)
         return roc
-
-    def compute_wsim(self, theta=None, phi=None, **kws):
-        if 'data' in kws:
-            pp = kws['data']['pp']
-            data = kws['data']['d']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pp = self.posterior(theta, phi)
-            data = self.data_test
-
-        wd = data[:,2].T
-        ws = pp
-
-        ## l1 norm
-        #nnz = len(wd)
-        #mean_dist = np.abs(ws - wd).sum() / nnz
-        ## L2 norm
-        mean_dist = mean_squared_error(wd, ws)
-
-        return mean_dist
-
 
     def generate(self, N=None, K=None, hyperparams=None, mode='predictive', symmetric=True, **kwargs):
         #self.update_hyper(hyperparams)
@@ -442,7 +421,7 @@ class iwmmsb_scvb3(RandomGraphModel):
         _norm = 0
 
         self.measures['entropy'] = (self.compute_entropy(), np.inf)
-        print( '__init__ Entropy: %f' % self.measures['entropy'][0])
+        print('__init__ Entropy: %f' % self.measures['entropy'][0])
         for _it, obj in enumerate(frontend):
 
             source, target, weight = obj
@@ -551,7 +530,6 @@ class iwmmsb_scvb3(RandomGraphModel):
                     self._observed_pt = observed_pt
                     self.compute_measures()
 
-                    print('.', end='')
                     self.log.info('it %d | prop edge: %.2f | mnb %d/%d, %s, Entropy: %f,  diff: %f' % (_it, prop_edge,
                                                                                                        mnb_num, mnb_total,
                                                                                                        '/'.join((self.expe.model, self.expe.corpus)),
@@ -561,7 +539,6 @@ class iwmmsb_scvb3(RandomGraphModel):
                         self.write_current_state(self)
                         if mnb_num % 4000 == 0:
                             self.save(silent=True)
-                            sys.stdout.flush()
 
                     if self._check_eta():
                         break
@@ -584,6 +561,7 @@ class iwmmsb_scvb3(RandomGraphModel):
             if self._eta[-1] - self._eta[0] < self._eta_limit:
                 self._eta_control = self._eta[-1]
                 print('-', end='')
+                sys.stdout.flush()
             else:
                 self._eta = [self._eta[-1]]
 

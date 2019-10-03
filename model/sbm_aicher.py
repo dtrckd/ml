@@ -22,8 +22,6 @@ class sbm_aicher(RandomGraphModel):
         * Gaussian: Weighted SBM (WSBM)
     '''
 
-    _purge = ['_kernel', '_lut_nbinom', '_likelihood']
-
     def _reduce_latent(self):
 
         p = self.prior_model.expected_posterior(self._tau)
@@ -52,11 +50,10 @@ class sbm_aicher(RandomGraphModel):
 
         qijs = np.array([ theta[i].dot(_likelihood(xij)).dot(theta[j]) for i,j,xij in data])
 
-        self._likelihood = _likelihood
         return qijs
 
     def posterior(self, theta=None, phi=None, data='test'):
-        """ Compute the predictive posterior (abrev. pp) with the given estimators
+        """ Compute the predictive posterior with the given estimators
             onthe given set of data.
 
             Notes
@@ -75,52 +72,27 @@ class sbm_aicher(RandomGraphModel):
         elif data == 'test':
             data = self.data_test
 
+        print('theta:', theta)
+        print('phi:', phi)
+
         qijs = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,_ in data])
+
+        print(qijs)
 
         return qijs
 
-    def compute_roc(self, theta=None, phi=None, **kws):
-        if 'data' in kws:
-            pp = kws['data']['pp']
-            data = kws['data']['d']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pp = self.posterior(theta, phi)
-            data = self.data_test
+    def compute_roc(self, theta=None, phi=None, data='test', **kws):
+        if theta is None:
+            theta, phi = self._reduce_latent()
+        qij = self.posterior(theta, phi, data)
+        data = getattr(self, 'data_'+data)
 
-        weights = np.squeeze(self.data_test[:,2].T)
-        y_true = weights.astype(bool)*1
+        self._y_true = np.squeeze(data[:,2].T).astype(bool)*1
+        self._probas = self.prior_model.predict_edge(theta, phi, qij, data)
 
-        pij = self.prior_model.predict_edge(theta, phi, pp, data)
-
-        self._probas = pij
-        self._y_true = y_true
-
-        fpr, tpr, thresholds = roc_curve(y_true, pij)
+        fpr, tpr, thresholds = roc_curve(self._y_true, self._probas)
         roc = auc(fpr, tpr)
         return roc
-
-    def compute_wsim(self, theta=None, phi=None, **kws):
-        if 'data' in kws:
-            pp = kws['data']['pp']
-            data = kws['data']['d']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pp = self.posterior(theta, phi)
-            data = self.data_test
-
-        wd = data[:,2].T
-        ws = pp
-
-        ## l1 norm
-        #nnz = len(wd)
-        #mean_dist = np.abs(ws - wd).sum() / nnz
-        ## L2 norm
-        mean_dist = mean_squared_error(wd, ws)
-
-        return mean_dist
 
     #@pysnooper.snoop()
     def fit(self, frontend):
@@ -145,8 +117,6 @@ class sbm_aicher(RandomGraphModel):
         old_tau = np.zeros(phi_shape)
         old_mu = np.zeros(self._theta.shape)
 
-        self._iteration = 0
-
         weights = frontend.data.ep['weights']
         edges = frontend.data.get_edges()
         edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
@@ -168,6 +138,7 @@ class sbm_aicher(RandomGraphModel):
 
             phi_sink += pm._unin_priors.reshape(phi_dim)
             self.compute_natural_expectations(phi_sink)
+            self._tau = phi_sink
 
             mu_sensibility = 1
             while mu_sensibility > self.expe.mu_tol:
@@ -182,36 +153,44 @@ class sbm_aicher(RandomGraphModel):
                             kk_outer = np.tile(self._theta[j][np.newaxis].T, (nat_dim, 1, K))
                             theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
+                    theta_i = np.empty_like(self._theta[0])
                     for k in range(K):
                         theta_sink_cross = np.zeros(theta_sink.shape)
                         theta_sink_cross[:,k,:] = theta_sink[:,k,:]
                         theta_sink_cross[:,:,k] = theta_sink[:,:,k]
-                        self._theta[i,k] = np.sum(theta_sink_cross * phi_sink)
+                        theta_i[k] = np.sum(theta_sink_cross * phi_sink)
 
                     # Normalize _theta
-                    self._theta[i] = expnormalize(self._theta[i])
+                    self._theta[i] = expnormalize(theta_i)
+                    #print('h ',self._theta[i])
 
                 mu  = self._theta
                 mu_sensibility = np.absolute(mu - old_mu).sum()
                 old_mu = mu.copy()
                 print('mu: %.4f' % mu_sensibility)
 
-                self._iteration += 1
+            self.compute_measures()
+            if self.expe.get('_write'):
+                self.write_current_state(self)
+                if self._measure_cpt % self.snapshot_freq == 0:
+                    self.save(silent=True)
 
             tau = phi_sink
             tau_sensibility = np.absolute(tau - old_tau).sum()
             old_tau = tau
             print('tau: %.4f' % tau_sensibility)
-
-            #### DEBUG
-            #mean = (tau[0] / tau[2]).mean()
-            #var = ((tau[2]+1)/2 * 2* tau[2] / (tau[1]*tau[2] - tau[0]**2)).mean()
-            #print('mean: %.3f, var: %.3f' % (mean, var))
-
             self._tau = tau
-            self.compute_measures()
-            if self.expe.get('_write'):
-                self.write_current_state(self)
+
+            ### DEBUG
+            mean = (tau[0] / tau[2]).mean()
+            var = ((tau[2]+1)/2 * 2* tau[2] / (tau[1]*tau[2] - tau[0]**2)).mean()
+            print('mean: %.3f, var: %.3f' % (mean, var))
+
+            #self.compute_measures()
+            #if self.expe.get('_write'):
+            #    self.write_current_state(self)
+            #    if self._measure_cpt % self.snapshot_freq == 0:
+            #        self.save(silent=True)
 
 
     def compute_natural_expectations(self, ss):

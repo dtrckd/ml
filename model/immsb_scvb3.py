@@ -19,7 +19,6 @@ from ml.model import RandomGraphModel
 
 class immsb_scvb3(RandomGraphModel):
 
-    _purge = ['_kernel', '_lut_nbinom']
 
     def _init_params(self, frontend):
         self.frontend = frontend
@@ -236,7 +235,7 @@ class immsb_scvb3(RandomGraphModel):
         _norm = 0
 
         self.measures['entropy'] = (self.compute_entropy(), np.inf)
-        print( '__init__ Entropy: %f' % self.measures['entropy'][0])
+        print('__init__ Entropy: %f' % self.measures['entropy'][0])
         for _it, obj in enumerate(frontend):
 
             source, target, weight = obj
@@ -339,7 +338,6 @@ class immsb_scvb3(RandomGraphModel):
                     self._observed_pt = observed_pt
                     self.compute_measures()
 
-                    print('.', end='')
                     self.log.info('it %d | prop edge: %.2f | mnb %d/%d, %s, Entropy: %f,  diff: %f' % (_it, prop_edge,
                                                                                                        mnb_num, mnb_total,
                                                                                                        '/'.join((self.expe.model, self.expe.corpus)),
@@ -350,7 +348,6 @@ class immsb_scvb3(RandomGraphModel):
                         self.write_current_state(self)
                         if mnb_num % 4000 == 0:
                             self.save(silent=True)
-                            sys.stdout.flush()
 
                     if self._check_eta():
                         break
@@ -373,6 +370,7 @@ class immsb_scvb3(RandomGraphModel):
             if self._eta[-1] - self._eta[0] < self._eta_limit:
                 self._eta_control = self._eta[-1]
                 print('-', end='')
+                sys.stdout.flush()
             else:
                 self._eta = [self._eta[-1]]
 

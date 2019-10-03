@@ -78,7 +78,7 @@ class Normal(ExpFamConjAbstract):
         return mat
 
     def predict_edge(self, theta, phi, pp,  data):
-        cdf = sp.stats.norm.cdf(1, *self.params)
+        cdf = sp.stats.norm.cdf(0.5, *self.params)
         probas = [(1 - theta[i].dot(cdf).dot(theta[j])) for i,j,_ in data]
         return np.asarray(probas)
 
