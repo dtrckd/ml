@@ -175,7 +175,7 @@ class WSBM_gt(SbmBase):
         weights = self.data_test[:,2].T
         ll = sp.stats.poisson.pmf(weights, pij)
 
-        ll[ll<=1e-300] = 1e-300
+        ll[ll<=1e-300] = 1e-200
         # Log-likelihood
         ll = np.log(ll).sum()
         # Perplexity is 2**H(X).

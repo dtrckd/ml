@@ -3,6 +3,7 @@ from time import time
 
 import numpy as np
 import scipy as sp
+from numpy import ma
 
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
 from sklearn.metrics import mean_squared_error
@@ -77,9 +78,11 @@ class RandomGraphModel(ModelBase):
         qijs = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,_ in data])
 
         # @warning: assume data == 'valid' !
+        assert(data == 'valid')
         qijs = qijs * self._w_a + self._w_b
 
         #qijs = ma.masked_invalid(qijs)
+        qijs[qijs<=1e-300] = 1e-200
         return qijs
 
     def posterior(self, theta=None, phi=None, data='test'):
@@ -104,6 +107,7 @@ class RandomGraphModel(ModelBase):
 
         qijs = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,_ in data])
 
+        #qijs = ma.masked_invalid(qijs)
         return qijs
 
 
@@ -116,7 +120,6 @@ class RandomGraphModel(ModelBase):
         ll = qij
 
         # Log-likelihood (Perplexity is 2**H(X).)
-        ll[ll<=1e-300] = 1e-200
         ll = np.log(ll).sum()
         return ll
 

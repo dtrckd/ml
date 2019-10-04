@@ -1,12 +1,12 @@
 import numpy as np
 import scipy as sp
+from numpy import ma
 
 from scipy.special import gammaln, psi  # gamma function utils
 from scipy.special import polygamma
 
 from functools import partial, lru_cache
 
-norm_pdf = sp.stats.norm.pdf
 
 class ExpFamConjAbstract(object):
 
@@ -28,7 +28,7 @@ class ExpFamConjAbstract(object):
         self._natex = map(partial(np.vectorize, excluded=[1, 'ss']), natfun)
 
     def likelihood(self, *params, cache=250):
-        ''' Returns a function tha compute data likelihood with caching options'''
+        ''' Returns a function that compute data likelihood with caching options'''
         pass
 
     def ss(self, x):
@@ -51,24 +51,35 @@ class Bernoulli(ExpFamConjAbstract):
 class Normal(ExpFamConjAbstract):
     def __init__(self):
         super().__init__()
-
-        self._unin_priors = np.array([1,3,1])
+        self._unin_priors = np.array([1,-1,1])
+        #self._unin_priors = np.array([1,-1,0])
 
     @lru_cache(maxsize=200, typed=False)
     def ss(self, x):
         return np.asarray([x, x**2, 1])
+        #return np.asarray([x, x**2, 0])# Last dimension special treatment
 
     def expected_posterior(self, nat):
-        m = nat[0] / nat[2]
-        v = ((nat[2]+1)/2 * 2* nat[2] / (nat[1]*nat[2] - nat[0]**2))
+
+        #print(nat[0])
+        #print(nat[1])
+
+        m = -0.5 *  nat[0] / nat[1]
+        v = -0.5 / nat[1]
+
+        #print('mean', m)
+        #print('var',v)
+
         self.params = [m,v]
         return self.params
 
     def likelihood(self, cache=200):
 
+        pdf = sp.stats.norm(*self.params).pdf
+
         @lru_cache(maxsize=cache, typed=False)
         def compute(x):
-            return norm_pdf(x, *self.params)
+            return pdf(x)
         #_likelihood =  defaultdict2(lambda x : sp.stats.norm.pdf(x, m, v)) # caching !
         return compute
 
@@ -78,11 +89,13 @@ class Normal(ExpFamConjAbstract):
         return mat
 
     def predict_edge(self, theta, phi, pp,  data):
-        cdf = sp.stats.norm.cdf(0.5, *self.params)
+        cdf = sp.stats.norm(*self.params).cdf(0.5)
         probas = [(1 - theta[i].dot(cdf).dot(theta[j])) for i,j,_ in data]
         return np.asarray(probas)
 
-
+    #
+    # Expected Natural Parameters
+    #
 
     def natex1(self, pos, ss):
         k, l = np.unravel_index(pos, ss[0].shape)
@@ -93,13 +106,13 @@ class Normal(ExpFamConjAbstract):
     def natex2(self, pos, ss):
         k, l = np.unravel_index(pos, ss[0].shape)
         t1, t2, t3 = ss[:, k, l]
-        tau = t3*(t3+1)/(2*(t2*t3 - t1**2))
+        tau = -t3*(t3+1)/(2*(t2*t3 - t1**2))
         return tau
 
     def natex3(self, pos, ss):
         k, l = np.unravel_index(pos, ss[0].shape)
         t1, t2, t3 = ss[:, k, l]
-        tau = -0.5*((t1**2+t2)/(t2*t3-t1**2) - psi((t3+1)/0.5) -np.log(2*t3/(t2*t3-t1**2)))
+        tau = -0.5*((t1**2+t2)/(t2*t3-t1**2) - psi((t3+1)/2) - np.log(2*t3/(t2*t3-t1**2)))
         return tau
 
 

@@ -60,8 +60,9 @@ class Aistats19(ExpDesign):
                     #kernel = ['bernoulli', 'normal', 'poisson'],
                     kernel = 'normal',
 
-                     mu_tol = 0.001,
-                     tau_tol = 0.001,
+                     mu_tol = 0.01,
+                     tau_tol = 0.01,
+                     max_iter = 100,
                     )
 
     wmmsb = ExpTensor(base_graph, model="iwmmsb_scvb3",

@@ -112,8 +112,10 @@ class immsb_scvb3(RandomGraphModel):
         nnzsum = self._len['nnzsum']
         dims = self._len['dims']
 
-        self.N_theta_left = (dims[:, None] * np.random.dirichlet([0.5]*K, N))
-        self.N_theta_right = (dims[:, None] * np.random.dirichlet([0.5]*K, N))
+        alpha0 = 1/K
+
+        self.N_theta_left = (dims[:, None] * np.random.dirichlet([alpha0]*K, N))
+        self.N_theta_right = (dims[:, None] * np.random.dirichlet([alpha0]*K, N))
 
         self.N_phi = np.zeros((2,K,K))
         nnz0 = nnz-E

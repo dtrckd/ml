@@ -143,8 +143,10 @@ class iwmmsb_scvb3(RandomGraphModel):
         nnzsum = self._len['nnzsum']
         dims = self._len['dims']
 
-        self.N_theta_left = (dims[:, None] * np.random.dirichlet([0.5]*K, N))
-        self.N_theta_right = (dims[:, None] * np.random.dirichlet([0.5]*K, N))
+        alpha0 = 1/K
+
+        self.N_theta_left = (dims[:, None] * np.random.dirichlet([alpha0]*K, N))
+        self.N_theta_right = (dims[:, None] * np.random.dirichlet([alpha0]*K, N))
 
         if self.expe.get('homo') == 'assortative':
             N_phi_d = np.diag(np.random.dirichlet([0.5]*K)) *nnz*3/4
@@ -204,7 +206,6 @@ class iwmmsb_scvb3(RandomGraphModel):
 
         self.gstep_y =  chi / ((tau + self._timestep_c)**kappa)
 
-
     def _reduce_latent(self):
         theta = self.N_theta_right + self.N_theta_left + np.tile(self.hyper_theta, (self.N_theta_left.shape[0],1))
         self._theta = (theta.T / theta.sum(axis=1)).T
@@ -250,7 +251,7 @@ class iwmmsb_scvb3(RandomGraphModel):
                 a = self.c0_r0 + self.N_Y
 
                 _pk = 1-pk
-                _pk[_pk < 1e-100] = 1e-100
+                _pk[_pk < 1e-300] = 1e-200
                 b = 1/(self.c0 - (self.N_phi)*np.log(_pk))
                 #rk = np.random.gamma(a, b)
                 rk = a*b
@@ -260,7 +261,7 @@ class iwmmsb_scvb3(RandomGraphModel):
 
                 pk = np.random.beta(c, d)
                 e_pk = c/(c+d)
-                pk[pk < 1e-100] = 1e-100
+                pk[pk < 1e-300] = 1e-200
 
                 self.hyper_phi = [rk, pk, e_pk]
 
@@ -269,7 +270,7 @@ class iwmmsb_scvb3(RandomGraphModel):
         kernel = self._kernel(xij)
 
         # debug: Underflow
-        kernel[kernel<=1e-300] = 1e-100
+        kernel[kernel<=1e-300] = 1e-200
         #kernel = ma.masked_invalid(kernel)
 
         outer_kk = np.log(np.outer(self.pik, self.pjk)) + np.log(kernel) #+ np.log(self._residu).sum()
@@ -284,7 +285,7 @@ class iwmmsb_scvb3(RandomGraphModel):
 
         # debug: Underflow
         phi_sum = phi_mean.sum()
-        #phi_mean[phi_mean<=1e-300] = 1e-300
+        #phi_mean[phi_mean<=1e-300] = 1e-200
         log_phi_sum = np.log(phi_mean).sum()
 
         K_len = (K*(K-1)/2 +K) if self._is_symmetric else K**2

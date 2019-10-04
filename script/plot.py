@@ -74,9 +74,11 @@ class Plot(ExpeFormat):
 
         return value
 
+    def __call__(self, *args, **kwargs):
+        return self.fig(*rags, **kwargs)
 
     @ExpeFormat.raw_plot('corpus')
-    def __call__(self, frame,  attribute='_entropy'):
+    def plot_old(self, frame,  attribute='_entropy'):
         ''' Plot figure group by :corpus:.
             Notes: likelihood/perplexity convergence report
         '''
@@ -154,7 +156,6 @@ class Plot(ExpeFormat):
 
         if expe.get('fig_xaxis'):
             xaxis = expe['fig_xaxis']
-            print(xaxis)
             if isinstance(xaxis, (tuple, list)):
                 xaxis_name = xaxis[0]
                 xaxis_surname = xaxis[1]

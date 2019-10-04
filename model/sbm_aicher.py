@@ -23,10 +23,8 @@ class sbm_aicher(RandomGraphModel):
     '''
 
     def _reduce_latent(self):
-
         p = self.prior_model.expected_posterior(self._tau)
         self._phi = p[0]
-
         return self._theta, self._phi
 
     def likelihood(self, theta=None, phi=None, data='valid'):
@@ -50,35 +48,7 @@ class sbm_aicher(RandomGraphModel):
 
         qijs = np.array([ theta[i].dot(_likelihood(xij)).dot(theta[j]) for i,j,xij in data])
 
-        return qijs
-
-    def posterior(self, theta=None, phi=None, data='test'):
-        """ Compute the predictive posterior with the given estimators
-            onthe given set of data.
-
-            Notes
-            -----
-            return the expected posterior $\hat \theta = E[\theta | X_train, \mu]$?
-            such that x_pred ~ E_M[x_pred | \hat \theta]
-        """
-
-        if theta is None:
-            theta = self._theta
-        if phi is None:
-            phi = self._phi
-
-        if data == 'valid':
-            data = self.data_valid
-        elif data == 'test':
-            data = self.data_test
-
-        print('theta:', theta)
-        print('phi:', phi)
-
-        qijs = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,_ in data])
-
-        print(qijs)
-
+        qijs[qijs<=1e-300] = 1e-200
         return qijs
 
     def compute_roc(self, theta=None, phi=None, data='test', **kws):
@@ -104,8 +74,8 @@ class sbm_aicher(RandomGraphModel):
         kernel = self.expe.kernel
 
         ### Init Param
-        self.alpha0 = np.array([1/K]*K)
-        self._theta = np.random.dirichlet([0.5]*K, N)
+        alpha0 = 1/K
+        self._theta = np.random.dirichlet([alpha0]*K, N)
         pm = self.prior_model = ExpFamConj[kernel]()
 
         nat_dim = len(self.prior_model._unin_priors)
@@ -127,7 +97,9 @@ class sbm_aicher(RandomGraphModel):
             neigs.append([_out, _in])
 
         ### Loop
-        while tau_sensibility > self.expe.tau_tol:
+        max_iter = self.expe.get('max_iter', 100)
+        it_loop1 = 0
+        while tau_sensibility > self.expe.tau_tol and it_loop1 < max_iter:
 
             # block-block loop (phi updates)
             phi_sink = np.zeros(phi_shape)
@@ -136,61 +108,70 @@ class sbm_aicher(RandomGraphModel):
                 kk_outer = np.tile(kk_outer, phi_dim)
                 phi_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
+            ## if last dimension of T is 1 update manually
+            #for k1, k2 in np.ndindex(K,K):
+            #    phi_sink[2, k1,k2] = self._theta[:,k1].sum() * self._theta[:,k2].sum()
+
             phi_sink += pm._unin_priors.reshape(phi_dim)
-            self.compute_natural_expectations(phi_sink)
-            self._tau = phi_sink
+            self._tau = self.compute_natural_expectations(phi_sink)
+
+            tau_sensibility = np.absolute(self._tau - old_tau).sum()
+            old_tau = self._tau
+            print('tau: %.4f' % tau_sensibility)
+            it_loop1 +=1
 
             mu_sensibility = 1
-            while mu_sensibility > self.expe.mu_tol:
+            it_loop2 = 0
+            while mu_sensibility > self.expe.mu_tol and it_loop2 < max_iter:
                 for i in np.random.choice(N, size=N, replace=False):
                     theta_sink = np.zeros(phi_shape)
                     for j, w in neigs[i][0]:
                         kk_outer = np.tile(self._theta[j], (nat_dim, K, 1))
                         theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
+                    ## if last dimension of T is 1 update manually
+                    #for k in range(K):
+                    #    theta_sink[2,k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
+
                     if not self._is_symmetric:
                         for j, w in neigs[i][1]:
                             kk_outer = np.tile(self._theta[j][np.newaxis].T, (nat_dim, 1, K))
                             theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
+
+                        ## @debug symmetric, not sure
+                        ## if last dimension of T is 1 update manually
+                        #for k in range(K):
+                        #    theta_sink[2, :, k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
 
                     theta_i = np.empty_like(self._theta[0])
                     for k in range(K):
                         theta_sink_cross = np.zeros(theta_sink.shape)
                         theta_sink_cross[:,k,:] = theta_sink[:,k,:]
                         theta_sink_cross[:,:,k] = theta_sink[:,:,k]
-                        theta_i[k] = np.sum(theta_sink_cross * phi_sink)
+                        theta_i[k] = np.sum(theta_sink_cross * self._tau)
 
                     # Normalize _theta
                     self._theta[i] = expnormalize(theta_i)
-                    #print('h ',self._theta[i])
 
                 mu  = self._theta
                 mu_sensibility = np.absolute(mu - old_mu).sum()
                 old_mu = mu.copy()
                 print('mu: %.4f' % mu_sensibility)
+                it_loop2 +=1
 
-            self.compute_measures()
-            if self.expe.get('_write'):
-                self.write_current_state(self)
-                if self._measure_cpt % self.snapshot_freq == 0:
-                    self.save(silent=True)
-
-            tau = phi_sink
-            tau_sensibility = np.absolute(tau - old_tau).sum()
-            old_tau = tau
-            print('tau: %.4f' % tau_sensibility)
-            self._tau = tau
+                self.compute_measures()
+                if self.expe.get('_write'):
+                    self.write_current_state(self)
+                    if self._measure_cpt % self.snapshot_freq == 0:
+                        self.save(silent=True)
 
             ### DEBUG
-            mean = (tau[0] / tau[2]).mean()
-            var = ((tau[2]+1)/2 * 2* tau[2] / (tau[1]*tau[2] - tau[0]**2)).mean()
+            tau = self._tau
+            mean = (-0.5*tau[0] / tau[1]).mean()
+            var = (-0.5/tau[1]).mean()
             print('mean: %.3f, var: %.3f' % (mean, var))
 
-            #self.compute_measures()
-            #if self.expe.get('_write'):
-            #    self.write_current_state(self)
-            #    if self._measure_cpt % self.snapshot_freq == 0:
-            #        self.save(silent=True)
+
 
 
     def compute_natural_expectations(self, ss):
@@ -201,8 +182,12 @@ class sbm_aicher(RandomGraphModel):
             :priors: vector of hyperpriors
         '''
 
+        tau = np.empty_like(ss)
+
         for i, func in enumerate(self.prior_model._natex):
-            ss[i] = func(np.arange(ss[i].size, dtype=int).reshape(ss[i].shape), ss)
+            tau[i] = func(np.arange(ss[i].size, dtype=int).reshape(ss[i].shape), ss)
+
+        return tau
 
 
 
