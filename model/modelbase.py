@@ -70,6 +70,9 @@ class RandomGraphModel(ModelBase):
         if phi is None:
             phi = self._phi
 
+        # @warning: assume data == 'valid' !
+        assert(data == 'valid')
+
         if data == 'valid':
             data = self.data_valid
         elif data == 'test':
@@ -77,8 +80,6 @@ class RandomGraphModel(ModelBase):
 
         qijs = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,_ in data])
 
-        # @warning: assume data == 'valid' !
-        assert(data == 'valid')
         qijs = qijs * self._w_a + self._w_b
 
         #qijs = ma.masked_invalid(qijs)

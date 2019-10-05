@@ -215,8 +215,53 @@ class immsb_scvb3(RandomGraphModel):
         self._eta.append(ll)
         return ll
 
-    def compute_wsim(self, *args, **kws):
-        return np.inf
+    def compute_wsim(self, theta=None, phi=None, data='test', **kws):
+        if theta is None:
+            theta, phi = self._reduce_latent()
+
+        N,K = self._theta.shape
+        # class assignement
+        c = np.argmax(self._theta, 1)
+
+        # number of possible edges per block
+        c_len = np.sum(self._theta, 0)
+        norm = np.outer(c_len,c_len)
+        if not self._is_symmetric:
+            np.fill_diagonal(norm, 2*(norm.diagonal()-N))
+        else:
+            np.fill_diagonal(norm, norm.diagonal()-N)
+
+        # Expected weight per block
+        pp = np.zeros((K,K))
+        weights = self.frontend.data.ep['weights']
+        edges = self.frontend.data.get_edges()
+        edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
+        for i,j,w in edges:
+            pp[c[i], c[j]] += w
+
+        pp /= norm
+
+        data = getattr(self, 'data_'+data)
+        qij = np.array([ pp[c[i], c[j]] for i,j,_ in data])
+
+        wd = data[:,2].T
+        ws = qij
+
+        idx = wd > 0
+        wd = wd[idx]
+        ws = ws[idx]
+
+        ## l1 norm
+        #nnz = len(wd)
+        #mean_dist = np.abs(ws - wd).sum() / nnz
+        ## L2 norm
+        mean_dist = mean_squared_error(wd, ws)
+
+        return mean_dist
+
+
+
+
 
 
     def fit(self, frontend):

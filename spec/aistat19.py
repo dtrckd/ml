@@ -87,4 +87,8 @@ class Aistats19(ExpDesign):
                                   _refdir="ai19_0",
                              )
 
+    # note of dev to remove:
+    #
+    # ow: only weighted edges (third  dimension=1)
+    # now: with weighted edges (third T dimension=0)
 

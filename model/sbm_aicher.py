@@ -64,6 +64,53 @@ class sbm_aicher(RandomGraphModel):
         roc = auc(fpr, tpr)
         return roc
 
+    def compute_wsim(self, theta=None, phi=None, data='test', **kws):
+        if self.expe.kernel == 'bernoulli':
+            if theta is None:
+                theta, phi = self._reduce_latent()
+
+            N,K = self._theta.shape
+            # class assignement
+            c = np.argmax(self._theta, 1)
+
+            # number of possible edges per block
+            c_len = np.sum(self._theta, 0)
+            norm = np.outer(c_len,c_len)
+            if not self._is_symmetric:
+                np.fill_diagonal(norm, 2*(norm.diagonal()-N))
+            else:
+                np.fill_diagonal(norm, norm.diagonal()-N)
+
+            # Expected weight per block
+            pp = np.zeros((K,K))
+            weights = self.frontend.data.ep['weights']
+            edges = self.frontend.data.get_edges()
+            edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
+            for i,j,w in edges:
+                pp[c[i], c[j]] += w
+
+            pp /= norm
+
+            data = getattr(self, 'data_'+data)
+            qij = np.array([ pp[c[i], c[j]] for i,j,_ in data])
+
+            wd = data[:,2].T
+            ws = qij
+
+            idx = wd > 0
+            wd = wd[idx]
+            ws = ws[idx]
+
+            ## l1 norm
+            #nnz = len(wd)
+            #mean_dist = np.abs(ws - wd).sum() / nnz
+            ## L2 norm
+            mean_dist = mean_squared_error(wd, ws)
+
+            return mean_dist
+        else:
+            return super().compute_wsim(theta=None, phi=None, data='test', **kws)
+
     #@pysnooper.snoop()
     def fit(self, frontend):
         self._init(frontend)
@@ -108,9 +155,9 @@ class sbm_aicher(RandomGraphModel):
                 kk_outer = np.tile(kk_outer, phi_dim)
                 phi_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
-            ## if last dimension of T is 1 update manually
-            #for k1, k2 in np.ndindex(K,K):
-            #    phi_sink[2, k1,k2] = self._theta[:,k1].sum() * self._theta[:,k2].sum()
+            # if last dimension of T is 1 update manually
+            for k1, k2 in np.ndindex(K,K):
+                phi_sink[2, k1,k2] = self._theta[:,k1].sum() * self._theta[:,k2].sum()
 
             phi_sink += pm._unin_priors.reshape(phi_dim)
             self._tau = self.compute_natural_expectations(phi_sink)
@@ -129,19 +176,19 @@ class sbm_aicher(RandomGraphModel):
                         kk_outer = np.tile(self._theta[j], (nat_dim, K, 1))
                         theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
-                    ## if last dimension of T is 1 update manually
-                    #for k in range(K):
-                    #    theta_sink[2,k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
+                    # if last dimension of T is 1 update manually
+                    for k in range(K):
+                        theta_sink[2,k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
 
                     if not self._is_symmetric:
                         for j, w in neigs[i][1]:
                             kk_outer = np.tile(self._theta[j][np.newaxis].T, (nat_dim, 1, K))
                             theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
-                        ## @debug symmetric, not sure
-                        ## if last dimension of T is 1 update manually
-                        #for k in range(K):
-                        #    theta_sink[2, :, k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
+                        # @debug symmetric, not sure
+                        # if last dimension of T is 1 update manually
+                        for k in range(K):
+                            theta_sink[2, :, k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
 
                     theta_i = np.empty_like(self._theta[0])
                     for k in range(K):
@@ -167,9 +214,10 @@ class sbm_aicher(RandomGraphModel):
 
             ### DEBUG
             tau = self._tau
-            mean = (-0.5*tau[0] / tau[1]).mean()
-            var = (-0.5/tau[1]).mean()
-            print('mean: %.3f, var: %.3f' % (mean, var))
+            mean = (-0.5*tau[0] / tau[1])
+            var = (-0.5/tau[1])
+            print('mean: %.3f, var: %.3f' % (mean.mean(), var.var()))
+            print('mean: %.3f, var: %.3f' % (mean.max(), var.max()))
 
 
 

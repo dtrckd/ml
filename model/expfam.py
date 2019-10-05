@@ -51,8 +51,8 @@ class Bernoulli(ExpFamConjAbstract):
 class Normal(ExpFamConjAbstract):
     def __init__(self):
         super().__init__()
-        self._unin_priors = np.array([1,-1,1])
-        #self._unin_priors = np.array([1,-1,0])
+        #self._unin_priors = np.array([1,-1,1])
+        self._unin_priors = np.array([1,-1,0])
 
     @lru_cache(maxsize=200, typed=False)
     def ss(self, x):
