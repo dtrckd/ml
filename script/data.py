@@ -1,7 +1,9 @@
 import os
 from collections import OrderedDict
+import subprocess
 
 from pymake import ExpeFormat
+from pymake import get_pymake_settings
 
 
 
@@ -159,4 +161,27 @@ class Data(ExpeFormat):
         ''' like move but copy files instead.'''
 
         self.move(*args, copy=True)
+
+    def fetch(self, *args):
+
+        i = self.output_path.find('.pmk/')
+        path = self.output_path
+        local_path = path[i:]
+
+        user = get_pymake_settings('ssh_user')
+        machine = get_pymake_settings('ssh_machine')
+        remote_loc = get_pymake_settings('ssh_remote')
+        local_loc = os.path.dirname(path) + '/'
+
+        ext = '.inf'
+        _file = os.path.join(remote_loc, local_path+ext)
+
+        cmd = ['scp',
+               '%s@%s:%s'%(user, machine, _file),
+               local_loc
+              ]
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        subprocess.call(cmd)
+
 
