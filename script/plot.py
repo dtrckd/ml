@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from numpy import ma
-from pymake import GramExp, ExpeFormat
+from pymake import GramExp, ExpeFormat, ExpSpace
 from pymake.frontend.manager import ModelManager, FrontendManager
 from pymake.plot import _markers, _colors, _linestyle
 
@@ -187,7 +187,6 @@ class Plot(ExpeFormat):
             label = expe['_label'](expe)
             description = label if label else description
 
-
         #fr = self.load_frontend()
         #E = fr.num_edges()
         #N = fr.num_nodes()
@@ -203,8 +202,31 @@ class Plot(ExpeFormat):
             values = values[burnin:]
 
 
-        ax.plot(x, values, label=description, marker=frame.markers.next())
-        ax.legend(loc=expe.get('fig_legend',1), prop={'size':expe.get('legend_size',5)})
+        if frame.is_errorbar:
+            if self.is_first_expe():
+                self.D.cont = {}
+            cont = self.D.cont
+
+            if description in cont:
+                cont[description].x.append(x)
+                cont[description].y.append(values)
+            else:
+                cont[description] = ExpSpace(label=label, ax=ax)
+                cont[description].x = [x]
+                cont[description].y = [values]
+
+            if self.is_last_expe():
+                for description, d in cont.items():
+                    ax = d.ax
+                    arg_max_len = np.argmax([len(e) for e in d.y])
+                    x = d.x[arg_max_len]
+                    max_len = len(x)
+                    y = ma.masked_invalid([y.tolist()+[np.nan]*(max_len-len(y)) for y in d.y])
+                    ax.errorbar(x, y.mean(0), yerr=y.std(0), label=description, fmt=frame.markers.next(), ls=self.linestyles.next())
+                    ax.legend(loc=expe.get('fig_legend',1), prop={'size':expe.get('legend_size',5)})
+        else:
+            ax.plot(x, values, label=description, marker=frame.markers.next())
+            ax.legend(loc=expe.get('fig_legend',1), prop={'size':expe.get('legend_size',5)})
 
         #if self.is_last_expe() and expe.get('fig_xaxis'):
         #    for frame in self.get_figs():
