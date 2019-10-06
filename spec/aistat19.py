@@ -57,8 +57,8 @@ class Aistats19(ExpDesign):
     rescal_als = ExpTensor(base_graph, model='rescal_als')
 
     wsbm = ExpTensor(base_graph, model = 'sbm_aicher',
-                    #kernel = ['bernoulli', 'normal', 'poisson'],
-                    kernel = 'normal',
+                    kernel = ['bernoulli', 'normal', 'poisson'],
+                    #kernel = 'normal',
 
                      mu_tol = 0.01,
                      tau_tol = 0.01,
@@ -76,19 +76,38 @@ class Aistats19(ExpDesign):
                     )
     mmsb = ExpTensor(wmmsb, model="immsb_scvb3")
 
+
     aistats_design_wmmsb = ExpGroup([wmmsb],
                                     corpus=net_final,
                                     training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
-                                    _refdir="ai19_0",
+                                    _refdir="ai19_1",
                              )
+    aistats_design_mmsb = ExpGroup([mmsb],
+                                    corpus=net_final,
+                                    training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
+                                    _refdir="ai19_1",
+                             )
+    aistats_design_mm = ExpGroup([aistats_design_wmmsb, aistats_design_mmsb])
+
+    aistats_design_wsbm = ExpGroup([wsbm],
+                                    corpus=net_final,
+                                    training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
+                                    _refdir="ai19_1",
+                             )
+
     aistats_design_all = ExpGroup([wmmsb, mmsb, wsbm, sbm_peixoto],
                                   corpus=net_final,
                                   training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
-                                  _refdir="ai19_0",
+                                  _refdir="ai19_1",
                              )
 
     # note of dev to remove:
     #
     # ow: only weighted edges (third  dimension=1)
     # now: with weighted edges (third T dimension=0)
+    #
+    # Changes: alpha0 = 1/K wsbm wsim, mmsb wsim ok.
+    #  pmk aistats_design -x fit_missing --repeat 1 2 3 4 --refdir ai19_1 --net --cores 10
+    #
+    #  @todo: re fit hep-th astro-ph enron
 

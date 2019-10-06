@@ -157,7 +157,7 @@ class sbm_aicher(RandomGraphModel):
 
             # if last dimension of T is 1 update manually
             for k1, k2 in np.ndindex(K,K):
-                phi_sink[2, k1,k2] = self._theta[:,k1].sum() * self._theta[:,k2].sum()
+                phi_sink[-1, k1,k2] = self._theta[:,k1].sum() * self._theta[:,k2].sum()
 
             phi_sink += pm._unin_priors.reshape(phi_dim)
             self._tau = self.compute_natural_expectations(phi_sink)
@@ -178,7 +178,7 @@ class sbm_aicher(RandomGraphModel):
 
                     # if last dimension of T is 1 update manually
                     for k in range(K):
-                        theta_sink[2,k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
+                        theta_sink[-1,k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
 
                     if not self._is_symmetric:
                         for j, w in neigs[i][1]:
@@ -188,7 +188,7 @@ class sbm_aicher(RandomGraphModel):
                         # @debug symmetric, not sure
                         # if last dimension of T is 1 update manually
                         for k in range(K):
-                            theta_sink[2, :, k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
+                            theta_sink[-1, :, k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
 
                     theta_i = np.empty_like(self._theta[0])
                     for k in range(K):

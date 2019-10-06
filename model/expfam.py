@@ -46,27 +46,72 @@ class ExpFamConjAbstract(object):
 
 
 class Bernoulli(ExpFamConjAbstract):
-    pass
+    def __init__(self):
+        super().__init__()
+        self._unin_priors = np.array([1,-0.69])
+
+    @lru_cache(maxsize=200, typed=False)
+    def ss(self, x):
+        return np.asarray([x, 0])# Last dimension special treatment
+
+    def expected_posterior(self, nat):
+
+        m = nat[0] + nat[1]
+
+        self.params = [m]
+        return self.params
+
+    def likelihood(self, cache=200):
+
+        pdf = sp.stats.bernoulli(*self.params).pmf
+
+        @lru_cache(maxsize=cache, typed=False)
+        def compute(x):
+            return pdf(x)
+        #_likelihood =  defaultdict2(lambda x : sp.stats.norm.pdf(x, m, v)) # caching !
+        return compute
+
+    def random_init(self, shape):
+        mat = np.random.random(shape)
+        return mat
+
+    def predict_edge(self, theta, phi, pp,  data):
+        p = self.params[0]
+        probas = [theta[i].dot(p).dot(theta[j]) for i,j,_ in data]
+        return np.asarray(probas)
+
+    #
+    # Expected Natural Parameters
+    #
+
+    def natex1(self, pos, ss):
+        k, l = np.unravel_index(pos, ss[0].shape)
+        t1, t2 = ss[:, k, l]
+        tau = psi(t1+1) - psi(t2-t1+1)
+        return tau
+
+    def natex2(self, pos, ss):
+        k, l = np.unravel_index(pos, ss[0].shape)
+        t1, t2 = ss[:, k, l]
+        tau = psi(t2-t1+1) + psi(t2+2)
+        return tau
+
 
 class Normal(ExpFamConjAbstract):
     def __init__(self):
         super().__init__()
         #self._unin_priors = np.array([1,-1,1])
-        self._unin_priors = np.array([1,-1,0])
+        self._unin_priors = np.array([1,-1,-1])
 
     @lru_cache(maxsize=200, typed=False)
     def ss(self, x):
-        return np.asarray([x, x**2, 1])
-        #return np.asarray([x, x**2, 0])# Last dimension special treatment
+        #return np.asarray([x, x**2, 1])
+        return np.asarray([x, x**2, 0])# Last dimension special treatment
 
     def expected_posterior(self, nat):
 
-        #print(nat[0])
-        #print(nat[1])
-
         m = -0.5 *  nat[0] / nat[1]
         v = -0.5 / nat[1]
-
         #print('mean', m)
         #print('var',v)
 
@@ -116,57 +161,57 @@ class Normal(ExpFamConjAbstract):
         return tau
 
 
-        #if kernel == 'bernoulli':
-        #    self._unin_priors = np.array([0.5, 0.5])
-        #    self._phi = np.random.beta(*self._unin_priors, size=K**2).reshape(K,K)
-
-        #    x = frontend.weights()
-        #    T = np.asarray([x, 1])
-        #elif kernel == 'normal':
-
-        #    def natex1(pos, ss):
-        #        k, l = np.unravel_index(pos, ss[0].shape)
-        #        t1, t2, t3 = ss[:, k, l]
-        #        tau = t1*(t3+1)/(t2*t3 - t1**2)
-        #        return tau
-
-        #    def natex2(pos, ss):
-        #        k, l = np.unravel_index(pos, ss[0].shape)
-        #        t1, t2, t3 = ss[:, k, l]
-        #        tau = t3*(t3+1)/(2*(t2*t3 - t1**2))
-        #        return tau
-
-        #    def natex3(pos, ss):
-        #        k, l = np.unravel_index(pos, ss[0].shape)
-        #        t1, t2, t3 = ss[:, k, l]
-        #        tau = -0.5*((t1**2+t2)/(t2*t3-t1**2) - psi((t3+1)/0.5) -np.log(2*t3/(t2*t3-t1**2)))
-        #        return tau
-
-        #    def ss(x):
-        #        return np.asarray([x, x**2, 1])
-
-        #    # Kernel expected natural parameters / log partition gradient
-        #    self._natex = map(partial(np.vectorize, excluded=[1, 'ss']), [natex1, natex2, natex3])
-        #    # kernel sufficient statistics
-        #    self._ss = ss
-        #    # Kernel Likelihood
-        #    self._ll = defaultdict2(lambda x,m,v : sp.stats.norm.pdf(x, m, v)) # caching !
-        #    # Hyperpriors
-        #    self._unin_priors = np.array([1,3,1])
-
-        #    # Random Initialization
-        #    self._phi = np.random.normal(1, 1, size=K**2).reshape(K,K)
-        #    # variance from a gamma ?
-
-        #elif kernel == 'poisson':
-        #    self._unin_priors = np.array([1, 1])
-        #    self._phi = np.random.gamma(*self._unin_priors, size=K**2).reshape(K,K)
-
-        #    x = frontend.weights()
-        #    T = np.asarray([x, 1])
-        #else:
-        #    raise NotImplementedError('kernel unknown: %s' % kernel)
-
 class Poisson(ExpFamConjAbstract):
-    pass
+    def __init__(self):
+        super().__init__()
+        self._unin_priors = np.array([0,-1])
+
+    @lru_cache(maxsize=200, typed=False)
+    def ss(self, x):
+        return np.asarray([x, 0])# Last dimension special treatment
+
+    def expected_posterior(self, nat):
+
+        m = np.exp(nat[0])
+        #assert(np.isclose(m, -nat[1]).all())
+        self.params = [m]
+        return self.params
+
+    def likelihood(self, cache=200):
+
+        pdf = sp.stats.poisson(*self.params).pmf
+
+        @lru_cache(maxsize=cache, typed=False)
+        def compute(x):
+            return pdf(x)
+        #_likelihood =  defaultdict2(lambda x : sp.stats.norm.pdf(x, m, v)) # caching !
+        return compute
+
+    def random_init(self, shape):
+        mat = int(np.random.gamma(1,2,shape))+1
+        # variance from a gamma ?
+        return mat
+
+    def predict_edge(self, theta, phi, pp,  data):
+        cdf = sp.stats.poisson(*self.params).cdf(0.5)
+        probas = [(1 - theta[i].dot(cdf).dot(theta[j])) for i,j,_ in data]
+        return np.asarray(probas)
+
+    #
+    # Expected Natural Parameters
+    #
+
+    def natex1(self, pos, ss):
+        k, l = np.unravel_index(pos, ss[0].shape)
+        t1, t2 = ss[:, k, l]
+        tau = psi(t1+1) - np.log(t2)
+        return tau
+
+    def natex2(self, pos, ss):
+        k, l = np.unravel_index(pos, ss[0].shape)
+        t1, t2 = ss[:, k, l]
+        tau = -(t1+1)/t2
+        return tau
+
+
 

@@ -221,7 +221,7 @@ class Plot(ExpeFormat):
                     arg_max_len = np.argmax([len(e) for e in d.y])
                     x = d.x[arg_max_len]
                     max_len = len(x)
-                    y = ma.masked_invalid([y.tolist()+[np.nan]*(max_len-len(y)) for y in d.y])
+                    y = self._to_masked([y.tolist()+[np.nan]*(max_len-len(y)) for y in d.y])
                     ax.errorbar(x, y.mean(0), yerr=y.std(0), label=description, fmt=frame.markers.next(), ls=self.linestyles.next())
                     ax.legend(loc=expe.get('fig_legend',1), prop={'size':expe.get('legend_size',5)})
         else:
@@ -322,8 +322,7 @@ class Plot(ExpeFormat):
 
 
     #
-    #
-    # Specidic
+    # Specific
     #
 
     def roc_evolution2(self, *args, _type='errorbar'):

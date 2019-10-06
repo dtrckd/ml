@@ -84,6 +84,9 @@ _gram = [
         help=''),
 
 
+     '--kernel', dict(
+         help='Model kernel.'),
+
     # System
      '--snapshot',dict(dest='snapshot_freq', type=int),
 
