@@ -33,6 +33,13 @@ class Plot(ExpeFormat):
     def _preprocess(self):
         pass
 
+    def _to_masked(self, lst, dtype=float):
+        themask = lambda x:np.nan if x in ('--', 'None') else x
+        if isinstance(lst, list):
+            return ma.masked_invalid(np.array(list(map(themask, lst)), dtype=dtype))
+        else:
+            return themask(lst)
+
     def _extract_data(self, z, data, *args):
 
         value = None
@@ -97,14 +104,6 @@ class Plot(ExpeFormat):
         ax = frame.ax()
         ax.plot(values, label=description, marker=frame.markers.next())
         ax.legend(loc='upper right',prop={'size':5})
-
-    def _to_masked(self, lst, dtype=float):
-        themask = lambda x:np.nan if x in ('--', 'None') else x
-        if isinstance(lst, list):
-            return ma.masked_invalid(np.array(list(map(themask, lst)), dtype=dtype))
-        else:
-            return themask(lst)
-
 
     @ExpeFormat.raw_plot
     def plot_unique(self, attribute='_entropy'):
@@ -203,7 +202,7 @@ class Plot(ExpeFormat):
 
 
         if frame.is_errorbar:
-            if self.is_first_expe():
+            if self.is_first_expe() or not hasattr(self.D, 'cont'):
                 self.D.cont = {}
             cont = self.D.cont
 

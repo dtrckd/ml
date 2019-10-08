@@ -47,6 +47,12 @@ _gram = [
     '--testset-ratio', dict(
         dest='testset_ratio', nargs='*', action=partial(exp_append, _t=float),
         help='testset/learnset percentage for testing.'),
+    '--training-ratio', dict(
+        dest='training_ratio', nargs='*', action=partial(exp_append, _t=float),
+        help='testset/learnset percentage for testing.'),
+    '--validset-ratio', dict(
+        dest='validset_ratio', nargs='*', action=partial(exp_append, _t=float),
+        help='testset/learnset percentage for testing.'),
 
     '--mask', dict(
         nargs='*', action=exp_append,

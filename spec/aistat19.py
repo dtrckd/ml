@@ -47,9 +47,9 @@ class Aistats19(ExpDesign):
         _format       = "{model}-{kernel}-{K}_{corpus}-{training_ratio}",
         _measures     = ['time_it',
                          'entropy@data=valid',
-                         'roc@data=test&measure_freq=5',
-                         'pr@data=test&measure_freq=5',
-                         'wsim@data=test&measure_freq=5'],
+                         'roc@data=test&measure_freq=10',
+                         'pr@data=test&measure_freq=10',
+                         'wsim@data=test&measure_freq=10'],
     )
 
 
@@ -95,7 +95,7 @@ class Aistats19(ExpDesign):
                                     _refdir="ai19_1",
                              )
 
-    aistats_design_all = ExpGroup([wmmsb, mmsb, wsbm, sbm_peixoto],
+    aistats_design_final = ExpGroup([wmmsb, mmsb, wsbm, sbm_peixoto],
                                   corpus=net_final,
                                   training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
                                   _refdir="ai19_1",
@@ -109,5 +109,7 @@ class Aistats19(ExpDesign):
     # Changes: alpha0 = 1/K wsbm wsim, mmsb wsim ok.
     #  pmk aistats_design -x fit_missing --repeat 1 2 3 4 --refdir ai19_1 --net --cores 10
     #
-    #  @todo: re fit hep-th astro-ph enron
+    #  @todo: re fit hep-th astro-ph enron on swbm [WIP]
+    #  @todo: fit-missing on wsbm
+    #  @todo: fit hep-th astro-ph enron on mm
 
