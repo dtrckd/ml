@@ -25,7 +25,13 @@ class sbm_aicher(RandomGraphModel):
     def _reduce_latent(self):
         p = self.prior_model.expected_posterior(self._tau)
         self._phi = p[0]
-        return self._theta, self._phi
+
+        # @cache
+        theta = np.zeros_like(self._theta)
+        theta[np.arange(len(self._theta)), self._theta.argmax(1)] = 1
+
+        # @Warning: let self._theta uncertaint
+        return theta, self._phi
 
     def likelihood(self, theta=None, phi=None, data='valid'):
         """ Compute data likelihood (abrev. ll) with the given estimators
@@ -46,9 +52,17 @@ class sbm_aicher(RandomGraphModel):
 
         _likelihood = self.prior_model.likelihood()
 
-        qijs = np.array([ theta[i].dot(_likelihood(xij)).dot(theta[j]) for i,j,xij in data])
+        qijs = np.array([ theta[i].dot(_likelihood(int(xij>0))).dot(theta[j]) for i,j,xij in data])
 
-        qijs[qijs<=1e-300] = 1e-200
+        with np.errstate(all='raise'):
+            try:
+                qijs[qijs<=1e-300] = 1e-200
+            except Exception:
+                for i,j,xij in data:
+                    print(theta[i], theta[j], _likelihood(xij))
+                    break
+                exit()
+
         return qijs
 
     def compute_roc(self, theta=None, phi=None, data='test', **kws):
@@ -64,52 +78,6 @@ class sbm_aicher(RandomGraphModel):
         roc = auc(fpr, tpr)
         return roc
 
-    def compute_wsim(self, theta=None, phi=None, data='test', **kws):
-        if self.expe.kernel == 'bernoulli':
-            if theta is None:
-                theta, phi = self._reduce_latent()
-
-            N,K = self._theta.shape
-            # class assignement
-            c = np.argmax(self._theta, 1)
-
-            # number of possible edges per block
-            c_len = np.sum(self._theta, 0)
-            norm = np.outer(c_len,c_len)
-            if not self._is_symmetric:
-                np.fill_diagonal(norm, 2*(norm.diagonal()-N))
-            else:
-                np.fill_diagonal(norm, norm.diagonal()-N)
-
-            # Expected weight per block
-            pp = np.zeros((K,K))
-            weights = self.frontend.data.ep['weights']
-            edges = self.frontend.data.get_edges()
-            edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
-            for i,j,w in edges:
-                pp[c[i], c[j]] += w
-
-            pp /= norm
-
-            data = getattr(self, 'data_'+data)
-            qij = np.array([ pp[c[i], c[j]] for i,j,_ in data])
-
-            wd = data[:,2].T
-            ws = qij
-
-            idx = wd > 0
-            wd = wd[idx]
-            ws = ws[idx]
-
-            ## l1 norm
-            #nnz = len(wd)
-            #mean_dist = np.abs(ws - wd).sum() / nnz
-            ## L2 norm
-            mean_dist = mean_squared_error(wd, ws)
-
-            return mean_dist
-        else:
-            return super().compute_wsim(theta=None, phi=None, data='test', **kws)
 
     #@pysnooper.snoop()
     def fit(self, frontend):
@@ -133,6 +101,9 @@ class sbm_aicher(RandomGraphModel):
 
         old_tau = np.zeros(phi_shape)
         old_mu = np.zeros(self._theta.shape)
+        old_tau_sens = np.inf
+        old_mus = [np.inf]
+        old_taus = [np.inf]
 
         weights = frontend.data.ep['weights']
         edges = frontend.data.get_edges()
@@ -150,61 +121,90 @@ class sbm_aicher(RandomGraphModel):
 
             # block-block loop (phi updates)
             phi_sink = np.zeros(phi_shape)
+            theta_argm = self._theta.argmax(1)
             for i, j, w in edges:
-                kk_outer = np.outer(self._theta[i], self._theta[j])
-                kk_outer = np.tile(kk_outer, phi_dim)
-                phi_sink += pm.ss(w).reshape(phi_dim) * kk_outer
+                ki = theta_argm[i]
+                kj = theta_argm[j]
+                phi_sink[:,ki,kj] += pm.ss(w) * self._theta[i, ki]*self._theta[j, kj]
+                #kk_outer = np.outer(self._theta[i], self._theta[j])
+                #kk_outer = np.tile(kk_outer, phi_dim)
+                #phi_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
             # if last dimension of T is 1 update manually
             for k1, k2 in np.ndindex(K,K):
                 phi_sink[-1, k1,k2] = self._theta[:,k1].sum() * self._theta[:,k2].sum()
 
-            phi_sink += pm._unin_priors.reshape(phi_dim)
-            self._tau = self.compute_natural_expectations(phi_sink)
+            self._tau = phi_sink + pm._unin_priors.reshape(phi_dim)
+            nat = self.compute_natural_expectations(self._tau)
 
-            tau_sensibility = np.absolute(self._tau - old_tau).sum()
+            new_tau_sens = np.absolute(self._tau - old_tau).sum()
+            tau_sensibility = np.absolute(new_tau_sens-old_taus[-1])
             old_tau = self._tau
+            old_taus.append(new_tau_sens)
             print('tau: %.4f' % tau_sensibility)
             it_loop1 +=1
+
+            if len(old_taus) > 10:
+                eta = np.mean(old_taus[::-1][:5]) - np.mean(old_taus[::-1][5:10])
+                if eta < 0.1:
+                    break
 
             mu_sensibility = 1
             it_loop2 = 0
             while mu_sensibility > self.expe.mu_tol and it_loop2 < max_iter:
+                theta_argmax = self._theta.argmax(1)
+                theta_m = np.zeros_like(self._theta)
+                theta_m[np.arange(len(self._theta)), theta_argmax] = self._theta.max(1)
                 for i in np.random.choice(N, size=N, replace=False):
                     theta_sink = np.zeros(phi_shape)
+                    ki = theta_argmax[i]
                     for j, w in neigs[i][0]:
-                        kk_outer = np.tile(self._theta[j], (nat_dim, K, 1))
-                        theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
+                        kj = theta_argmax[j]
+                        theta_sink[:, ki, kj] += pm.ss(w) * theta_m[j].max()
+                        #kk_outer = np.tile(self._theta[j], (nat_dim, K, 1))
+                        #theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
 
                     # if last dimension of T is 1 update manually
-                    for k in range(K):
-                        theta_sink[-1,k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
+                    theta_sink[-1, ki] += theta_m.sum(0)
+                    theta_sink[-1, ki] -= theta_m[i]
+                    #for k in range(K):
+                    #    theta_sink[-1,k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
 
                     if not self._is_symmetric:
                         for j, w in neigs[i][1]:
-                            kk_outer = np.tile(self._theta[j][np.newaxis].T, (nat_dim, 1, K))
-                            theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
-
-                        # @debug symmetric, not sure
-                        # if last dimension of T is 1 update manually
-                        for k in range(K):
-                            theta_sink[-1, :, k] += np.ones(K) * (self._theta[:i,k].sum(0)+self._theta[i+1:,k].sum(0))
+                            kj = theta_argmax[j]
+                            theta_sink[:, kj, ki] += pm.ss(w) * theta_m[j].max()
+                            #kk_outer = np.tile(self._theta[j][np.newaxis].T, (nat_dim, 1, K))
+                            #theta_sink += pm.ss(w).reshape(phi_dim) * kk_outer
+                    else:
+                        theta_sink[:, :, ki] = theta_sink[:,ki]
 
                     theta_i = np.empty_like(self._theta[0])
                     for k in range(K):
                         theta_sink_cross = np.zeros(theta_sink.shape)
                         theta_sink_cross[:,k,:] = theta_sink[:,k,:]
                         theta_sink_cross[:,:,k] = theta_sink[:,:,k]
-                        theta_i[k] = np.sum(theta_sink_cross * self._tau)
+                        theta_i[k] = np.sum(theta_sink_cross * nat)
 
                     # Normalize _theta
                     self._theta[i] = expnormalize(theta_i)
 
+                    theta_argmax[i] = self._theta[i].argmax()
+                    theta_m[i,:] = 0
+                    theta_m[i, theta_argmax[i]] = self._theta[i].max()
+
                 mu  = self._theta
-                mu_sensibility = np.absolute(mu - old_mu).sum()
-                old_mu = mu.copy()
+                new_mu_sens = np.absolute(mu - old_mu).sum()
+                mu_sensibility = np.absolute(new_mu_sens - old_mus[-1])
                 print('mu: %.4f' % mu_sensibility)
                 it_loop2 +=1
+                old_mu = mu.copy()
+                old_mus.append(new_mu_sens)
+
+                if len(old_mus) > 10:
+                    eta = np.mean(old_mus[::-1][:5]) - np.mean(old_mus[::-1][5:10])
+                    if eta < 0.1:
+                        break
 
                 self.compute_measures()
                 if self.expe.get('_write'):
@@ -212,12 +212,7 @@ class sbm_aicher(RandomGraphModel):
                     if self._measure_cpt % self.snapshot_freq == 0:
                         self.save(silent=True)
 
-            ### DEBUG
-            tau = self._tau
-            mean = (-0.5*tau[0] / tau[1])
-            var = (-0.5/tau[1])
-            print('mean: %.3f, var: %.3f' % (mean.mean(), var.var()))
-            print('mean: %.3f, var: %.3f' % (mean.max(), var.max()))
+            old_mus = old_mus[-1:]
 
 
 

@@ -26,7 +26,8 @@ class Plot(ExpeFormat):
     _default_expe = dict(
         _label = lambda expe: '%s %s' % (expe._alias[expe.model], expe.get('delta')) if expe.model in expe._alias else False,
         legend_size=10,
-        _csv_sample = 2,
+        #_csv_sample = 2,
+        _csv_sample = None,
         fig_burnin = 0
     )
 
@@ -48,20 +49,21 @@ class Plot(ExpeFormat):
             # Extract from saved measure (.inf file).
             if 'min' in args:
                 value = self._to_masked(data[z]).min()
-            else:
+            elif 'max' in args:
                 value = self._to_masked(data[z]).max()
-            #value = self._to_masked(data[z][-1])
+            else:
+                value = self._to_masked(data[z][-1])
 
         elif '@' in z:
-            # Take the  argmax/argmin of first part to extract the second
+            # Extract a value from max/min fo the second (@)
             ag, vl = z.split('@')
 
             if 'min' in args:
-                value = self._to_masked(data[ag]).argmin()
+                value = self._to_masked(data[vl]).argmin()
             else:
-                value = self._to_masked(data[ag]).argmax()
+                value = self._to_masked(data[vl]).argmax()
 
-            value = data[vl][value]
+            value = data[ag][value]
 
         else:
             # Compute it directly from the model.
@@ -176,8 +178,10 @@ class Plot(ExpeFormat):
         else:
             x = range(len(values))
 
-        if expe.get('_csv_sample'):
-            s = int(expe['_csv_sample'])
+        _sample = expe.get('_csv_sample', self._csv_sample(attribute))
+
+        if _sample:
+            s = int(_sample)
             x = x[::s]
             values = values[::s]
             self.log.warning('Subsampling data: _csv_sample=%s' % s)
@@ -270,7 +274,7 @@ class Plot(ExpeFormat):
             self.log.warning('No data for expe : %s' % self.output_path)
             data = {}
 
-        value = self._extract_data(z, data)
+        value = self._extract_data(z, data, *args)
 
         if value:
             loc = floc(expe[x], expe[y], z)

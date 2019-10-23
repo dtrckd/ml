@@ -33,6 +33,14 @@ class RandomGraphModel(ModelBase):
             self.data_test = data_test[n_test]
             self.data_valid = data_test[n_valid]
 
+            # if kernel == bernoulli
+            # For fast computation of bernoulli pmf.
+            self._w_a = self.data_valid[:,2].T.astype(int)
+            self._w_a[self._w_a > 0] = 1
+            self._w_a[self._w_a == 0] = -1
+            self._w_b = np.zeros(self._w_a.shape, dtype=int)
+            self._w_b[self._w_a == -1] = 1
+
         # Data statistics
         _len = {}
         _len['K'] = self.expe.get('K')
@@ -137,16 +145,111 @@ class RandomGraphModel(ModelBase):
         roc = auc(fpr, tpr)
         return roc
 
+    def compute_roc2(self, theta=None, phi=None, data='test', **kws):
+        ''' Based on the count in hard class (argmax) assignement and data count. '''
+        if theta is None:
+            theta, phi = self._reduce_latent()
+
+        N,K = self._theta.shape
+        # class assignement
+        c = self._theta.argmax(1) # @cache
+
+        theta_hard = np.zeros_like(self._theta)
+        theta_hard[np.arange(len(self._theta)), c] = 1 # @cache
+        c_len = theta_hard.sum(0)
+
+        # number of possible edges per block
+        norm = np.outer(c_len,c_len)
+        if not self._is_symmetric:
+            np.fill_diagonal(norm, 2*(norm.diagonal()-c_len))
+        else:
+            np.fill_diagonal(norm, norm.diagonal()-c_len)
+        norm = ma.masked_where(norm<=0, norm)
+
+        # Expected weight per block
+        pp = np.zeros((K,K))
+        weights = self.frontend.data.ep['weights']
+        edges = self.frontend.data.get_edges()
+        edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
+        for i,j,w in edges:
+            pp[c[i], c[j]] += 1
+
+        pp = pp / norm
+
+        data = getattr(self, 'data_'+data)
+        probas = ma.array([ pp[c[i], c[j]] for i,j,_ in data])
+
+        if ma.is_masked(probas):
+            return None
+
+        fpr, tpr, thresholds = roc_curve(self._y_true, probas)
+        roc = auc(fpr, tpr)
+        return roc
+
     def compute_pr(self, *args, **kwargs):
         # @Warning: have to be computed after compute_roc.
         # should ba place after roc string in {_format}.
         return average_precision_score(self._y_true, self._probas)
 
     def compute_wsim(self, theta=None, phi=None, data='test', **kws):
+        ''' Based on the baysian posterior. '''
         if theta is None:
             theta, phi = self._reduce_latent()
         qij = self.posterior(theta, phi, data)
         data = getattr(self, 'data_'+data)
+
+        wd = data[:,2].T
+        ws = qij
+
+        idx = wd > 0
+        wd = wd[idx]
+        ws = ws[idx]
+
+        ## l1 norm
+        #nnz = len(wd)
+        #mean_dist = np.abs(ws - wd).sum() / nnz
+        ## L2 norm
+        mean_dist = mean_squared_error(wd, ws)
+
+        return mean_dist
+
+
+    def compute_wsim2(self, theta=None, phi=None, data='test', **kws):
+        ''' Based on the count in hard class (argmax) assignement and data count. '''
+        if theta is None:
+            theta, phi = self._reduce_latent()
+
+        N,K = self._theta.shape
+        # class assignement
+        c = self._theta.argmax(1) # @cache
+
+        theta_hard = np.zeros_like(self._theta)
+        theta_hard[np.arange(len(self._theta)), c] = 1 # @cache
+        c_len = theta_hard.sum(0)
+
+        # number of possible edges per block
+        norm = np.outer(c_len,c_len)
+        if not self._is_symmetric:
+            np.fill_diagonal(norm, 2*(norm.diagonal()-c_len))
+        else:
+            np.fill_diagonal(norm, norm.diagonal()-c_len)
+        norm = ma.masked_where(norm<=0, norm)
+
+        # Expected weight per block
+        pp = np.zeros((K,K))
+        weights = self.frontend.data.ep['weights']
+        edges = self.frontend.data.get_edges()
+        edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
+        for i,j,w in edges:
+            pp[c[i], c[j]] += w
+
+        pp = pp / norm
+
+        data = getattr(self, 'data_'+data)
+        qij = ma.array([ pp[c[i], c[j]] for i,j,_ in data])
+
+        if ma.is_masked(qij):
+            return None
 
         wd = data[:,2].T
         ws = qij

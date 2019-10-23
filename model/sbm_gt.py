@@ -47,9 +47,10 @@ class SbmBase(RandomGraphModel):
             raise NotImplementedError
         else:
             try:
-               _theta = self._state.get_blocks().a
-               theta = np.zeros((len(_theta), self._K))
-               theta[(np.arange(len(_theta)), _theta)] = 1
+                K = self._len['K']
+                _theta = self._state.get_blocks().a
+                theta = np.zeros((len(_theta), K))
+                theta[(np.arange(len(_theta)), _theta)] = 1
             except AttributeError as e:
                 return self._theta, self._phi
 
@@ -65,50 +66,6 @@ class SbmBase(RandomGraphModel):
         self._theta, self._phi = theta, phi
 
         return theta, phi
-
-    def likelihood(self, theta=None, phi=None):
-        if theta is None:
-            theta = self._theta
-        if phi is None:
-            phi = self._phi
-
-        qijs = []
-        for i,j, xij in self.data_test:
-            #try:
-            #   # Too long !
-            #    pij = np.exp(self._state.get_edges_prob([(i,j),]))
-            #except AttributeError:
-            #    # If recomputed with fig :roc...
-            #    pij = theta[i].dot(phi).dot(theta[j])
-            pij = theta[i].dot(phi).dot(theta[j])
-
-            qijs.append( pij )
-
-        qijs = ma.masked_invalid(qijs)
-        return qijs
-
-
-    def compute_entropy(self, theta=None, phi=None, **kws):
-        if 'likelihood' in kws:
-            pij = kws['likelihood']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pij = self.likelihood(theta, phi)
-
-        ll = pij * self._w_a + self._w_b
-
-        # Log-likelihood (Perplexity is 2**H(X).)
-        ll[ll<=1e-300] = 1e-200
-        ll = np.log(ll).sum()
-
-        #return self._state.entropy()
-        return ll
-
-
-    def compute_wsim(self, *args, **kws):
-        return None
-
 
     def _spec_from_expe(self, _model):
         ''' Set Sklearn parameters. '''
@@ -164,76 +121,76 @@ class WSBM_gt(SbmBase):
     spec_map = dict(B_min='K', B_max='K', state_args=lambda self: {'recs':[self.frontend.data.ep.weights], 'rec_types' : ["discrete-poisson"]})
     _weighted = True
 
-    def compute_entropy(self, theta=None, phi=None, **kws):
-        if 'likelihood' in kws:
-            pij = kws['likelihood']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pij = self.likelihood(theta, phi)
+    #def compute_entropy(self, theta=None, phi=None, **kws):
+    #    if 'likelihood' in kws:
+    #        pij = kws['likelihood']
+    #    else:
+    #        if theta is None:
+    #            theta, phi = self._reduce_latent()
+    #        pij = self.likelihood(theta, phi)
 
-        weights = self.data_test[:,2].T
-        ll = sp.stats.poisson.pmf(weights, pij)
+    #    weights = self.data_test[:,2].T
+    #    ll = sp.stats.poisson.pmf(weights, pij)
 
-        ll[ll<=1e-300] = 1e-200
-        # Log-likelihood
-        ll = np.log(ll).sum()
-        # Perplexity is 2**H(X).
-        return ll
-        #return self._state.entropy()
+    #    ll[ll<=1e-300] = 1e-200
+    #    # Log-likelihood
+    #    ll = np.log(ll).sum()
+    #    # Perplexity is 2**H(X).
+    #    return ll
+    #    #return self._state.entropy()
 
-    def compute_roc(self, theta=None, phi=None, treshold=1, **kws):
-        if 'likelihood' in kws:
-            pij = kws['likelihood']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pij = self.likelihood(theta, phi)
+    #def compute_roc(self, theta=None, phi=None, treshold=1, **kws):
+    #    if 'likelihood' in kws:
+    #        pij = kws['likelihood']
+    #    else:
+    #        if theta is None:
+    #            theta, phi = self._reduce_latent()
+    #        pij = self.likelihood(theta, phi)
 
-        trsh = treshold
-        weights = np.squeeze(self.data_test[:,2].T)
+    #    trsh = treshold
+    #    weights = np.squeeze(self.data_test[:,2].T)
 
-        nr = self._state.get_nr()
-        norm = np.outer(nr.a, nr.a)
-        phi = phi / norm
-        #phi = phi / phi.sum()
+    #    nr = self._state.get_nr()
+    #    norm = np.outer(nr.a, nr.a)
+    #    phi = phi / norm
+    #    #phi = phi / phi.sum()
 
-        probas = []
-        for i,j, xij in self.data_test:
-            pij =  theta[i].dot(phi).dot(theta[j])
-            probas.append( pij )
+    #    probas = []
+    #    for i,j, xij in self.data_test:
+    #        pij =  theta[i].dot(phi).dot(theta[j])
+    #        probas.append( pij )
 
-        probas = ma.masked_invalid(probas)
-        #probas = 1 - sp.stats.poisson.pmf(0, probas)
-        #probas = pij
+    #    probas = ma.masked_invalid(probas)
+    #    #probas = 1 - sp.stats.poisson.pmf(0, probas)
+    #    #probas = pij
 
-        y_true = weights.astype(bool)*1
-        self._y_true = y_true
-        self._probas = probas
+    #    y_true = weights.astype(bool)*1
+    #    self._y_true = y_true
+    #    self._probas = probas
 
-        fpr, tpr, thresholds = roc_curve(y_true, probas)
-        roc = auc(fpr, tpr)
-        return roc
+    #    fpr, tpr, thresholds = roc_curve(y_true, probas)
+    #    roc = auc(fpr, tpr)
+    #    return roc
 
-    def compute_wsim(self, theta=None, phi=None, **kws):
-        if 'likelihood' in kws:
-            pij = kws['likelihood']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pij = self.likelihood(theta, phi)
+    #def compute_wsim(self, theta=None, phi=None, **kws):
+    #    if 'likelihood' in kws:
+    #        pij = kws['likelihood']
+    #    else:
+    #        if theta is None:
+    #            theta, phi = self._reduce_latent()
+    #        pij = self.likelihood(theta, phi)
 
-        weights = self.data_test[:,2].T
+    #    weights = self.data_test[:,2].T
 
-        nr = self._state.get_nr()
+    #    nr = self._state.get_nr()
 
-        ws = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,w in self.data_test if w > 0])
+    #    ws = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,w in self.data_test if w > 0])
 
-        # l1 norm
-        wd = weights[weights>0]
-        nnz = len(wd)
-        mean_dist = np.abs(ws - wd).sum() / nnz
-        return mean_dist
+    #    # l1 norm
+    #    wd = weights[weights>0]
+    #    nnz = len(wd)
+    #    mean_dist = np.abs(ws - wd).sum() / nnz
+    #    return mean_dist
 
 class WSBM2_gt(SbmBase):
     # graph_tool work in progress for weithed networds...

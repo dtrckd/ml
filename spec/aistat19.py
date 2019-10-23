@@ -2,11 +2,12 @@ from pymake import ExpSpace, ExpTensor, Corpus, ExpDesign, ExpGroup
 
 class Aistats19(ExpDesign):
 
-    _alias = {'ml.iwmmsb_scvb3' : 'WMMSB',
+    _alias = {'ml.iwmmsb_scvb3' : 'WMMSB-scvb',
               'ml.iwmmsb_scvb3_auto' : 'WMMSB-bg',
-              'ml.immsb_scvb3' : 'MMSB',
-              'ml.sbm_gt' : 'SBM',
-              'ml.wsbm_gt' : 'WSBM',
+              'ml.immsb_scvb3' : 'MMSB-bg',
+              'ml.sbm_gt' : 'SBM-gt',
+              'ml.wsbm_gt' : 'WSBM-gt',
+
               'link-dynamic-simplewiki': 'wiki-link',
               'munmun_digg_reply': 'digg-reply',
               'slashdot-threads': 'slashdot', }
@@ -43,25 +44,30 @@ class Aistats19(ExpDesign):
         driver = 'gt', # graph-tool driver
         _write = True,
         _data_type    = 'networks',
-        _refdir       = 'aistat_wmmsb',
+        _refdir       = 'aistat_wmmsb2',
         _format       = "{model}-{kernel}-{K}_{corpus}-{training_ratio}",
         _measures     = ['time_it',
                          'entropy@data=valid',
-                         'roc@data=test&measure_freq=10',
-                         'pr@data=test&measure_freq=10',
-                         'wsim@data=test&measure_freq=10'],
+                         'roc@data=test',
+                         #'roc@data=test&measure_freq=10',
+                         'pr@data=test&measure_freq=20',
+                         'wsim@data=test&measure_freq=10',
+                         'roc2@data=test&measure_freq=10',
+                         'wsim2@data=test&measure_freq=10',
+                        ],
     )
 
 
     sbm_peixoto = ExpTensor(base_graph, model='sbm_gt')
+    wsbm_peixoto = ExpTensor(base_graph, model='wsbm_gt')
     rescal_als = ExpTensor(base_graph, model='rescal_als')
 
     wsbm = ExpTensor(base_graph, model = 'sbm_aicher',
                     kernel = ['bernoulli', 'normal', 'poisson'],
                     #kernel = 'normal',
 
-                     mu_tol = 0.01,
-                     tau_tol = 0.01,
+                     mu_tol = 0.001,
+                     tau_tol = 0.001,
                      max_iter = 100,
                     )
 
@@ -95,7 +101,7 @@ class Aistats19(ExpDesign):
                                     _refdir="ai19_1",
                              )
 
-    aistats_design_final = ExpGroup([wmmsb, mmsb, wsbm, sbm_peixoto],
+    aistats_design_final = ExpGroup([wmmsb, mmsb, wsbm, sbm_peixoto, wsbm_peixoto],
                                   corpus=net_final,
                                   training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
                                   _refdir="ai19_1",

@@ -17,41 +17,69 @@ except ImportError as e:
 
 class Rescal_als(RandomGraphModel):
 
-    def likelihood(self, theta=None, phi=None):
+    def likelihood(self, theta=None, phi=None, data='valid'):
+        """ Compute data likelihood (abrev. ll) with the given estimators
+            onthe given set of data.
+
+            Parameters
+            ----------
+            data: str
+                valid -> validation data
+                test -> test data
+        """
         if theta is None:
             theta = self._theta
         if phi is None:
             phi = self._phi
 
+        # @warning: assume data == 'valid' !
+        assert(data == 'valid')
+
+        if data == 'valid':
+            data = self.data_valid
+        elif data == 'test':
+            data = self.data_test
+
         qijs = []
-        for i,j, xij in self.data_test:
-            qijs.append( theta[i].dot(phi[0]).dot(theta[j]) )
+        for i,j, xij in data:
+            qijs.append( theta[i].dot(phi).dot(theta[j]) )
+
+        qijs = np.array(qijs)
+        likelihood = 1 / (1 + np.exp(-qijs))
+
+        likelihood = likelihood * self._w_a + self._w_b
+
+        return likelihood
+
+    def posterior(self, theta=None, phi=None, data='valid'):
+        """ Compute data likelihood (abrev. ll) with the given estimators
+            onthe given set of data.
+
+            Parameters
+            ----------
+            data: str
+                valid -> validation data
+                test -> test data
+        """
+        if theta is None:
+            theta = self._theta
+        if phi is None:
+            phi = self._phi
+
+        if data == 'valid':
+            data = self.data_valid
+        elif data == 'test':
+            data = self.data_test
+
+        qijs = []
+        for i,j, xij in data:
+            qijs.append( theta[i].dot(phi).dot(theta[j]) )
 
         qijs = np.array(qijs)
         likelihood = 1 / (1 + np.exp(-qijs))
 
         return likelihood
 
-    def compute_entropy(self, theta=None, phi=None, **kws):
-        if 'likelihood' in kws:
-            pij = kws['likelihood']
-        else:
-            if theta is None:
-                theta, phi = self._reduce_latent()
-            pij = self.likelihood(theta, phi)
-
-        ll = pij * self._w_a + self._w_b
-
-        # Log-likelihood (Perplexity is 2**H(X).)
-        ll[ll<=1e-300] = 1e-200
-        ll = np.log(ll).sum()
-
-        return ll
-
-
-
-    def compute_wsim(self, *args, **kws):
-        return None
 
     def generate(self, N=None, K=None, hyperparams=None, mode='predictive', symmetric=True, **kwargs):
         likelihood = self.likelihood()
@@ -70,7 +98,7 @@ class Rescal_als(RandomGraphModel):
         A, R, fit, itr, exectimes = rescal_als(data, K, init='nvecs', lambda_A=10, lambda_R=10)
 
         self._theta = A
-        self._phi = R
+        self._phi = R[0]
 
         self.log.info('rescal fit info: %s; itr: %s, exectimes: %s' % (fit, itr, exectimes))
 

@@ -48,15 +48,16 @@ class ExpFamConjAbstract(object):
 class Bernoulli(ExpFamConjAbstract):
     def __init__(self):
         super().__init__()
-        self._unin_priors = np.array([1,-0.69])
+        self._unin_priors = np.array([0,0.001])
 
     @lru_cache(maxsize=200, typed=False)
     def ss(self, x):
+        x = 1 if x>0 else 0
         return np.asarray([x, 0])# Last dimension special treatment
 
-    def expected_posterior(self, nat):
+    def expected_posterior(self, tau):
 
-        m = nat[0] + nat[1]
+        m = (tau[0]+1) / (tau[1]+2)
 
         self.params = [m]
         return self.params
@@ -93,27 +94,25 @@ class Bernoulli(ExpFamConjAbstract):
     def natex2(self, pos, ss):
         k, l = np.unravel_index(pos, ss[0].shape)
         t1, t2 = ss[:, k, l]
-        tau = psi(t2-t1+1) + psi(t2+2)
+        tau = psi(t2-t1+1) - psi(t2+2)
         return tau
 
 
 class Normal(ExpFamConjAbstract):
     def __init__(self):
         super().__init__()
-        #self._unin_priors = np.array([1,-1,1])
-        self._unin_priors = np.array([1,-1,-1])
+        self._unin_priors = np.array([0,0.001,0.001])
 
     @lru_cache(maxsize=200, typed=False)
     def ss(self, x):
         #return np.asarray([x, x**2, 1])
         return np.asarray([x, x**2, 0])# Last dimension special treatment
 
-    def expected_posterior(self, nat):
+    def expected_posterior(self, tau):
 
-        m = -0.5 *  nat[0] / nat[1]
-        v = -0.5 / nat[1]
-        #print('mean', m)
-        #print('var',v)
+        m = tau[0] / tau[2]
+        #@warning differtent from Aicher code/error?
+        v = (tau[2]**2 * (tau[2]+1)) / (tau[1]*tau[2]+tau[0]**2)
 
         self.params = [m,v]
         return self.params
@@ -164,15 +163,15 @@ class Normal(ExpFamConjAbstract):
 class Poisson(ExpFamConjAbstract):
     def __init__(self):
         super().__init__()
-        self._unin_priors = np.array([0,-1])
+        self._unin_priors = np.array([0,0.001])
 
     @lru_cache(maxsize=200, typed=False)
     def ss(self, x):
         return np.asarray([x, 0])# Last dimension special treatment
 
-    def expected_posterior(self, nat):
+    def expected_posterior(self, tau):
 
-        m = np.exp(nat[0])
+        m = (tau[0]+1)/tau[1]
         #assert(np.isclose(m, -nat[1]).all())
         self.params = [m]
         return self.params
