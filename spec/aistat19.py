@@ -101,6 +101,12 @@ class Aistats19(ExpDesign):
                                     _refdir="ai19_1",
                              )
 
+    aistats_design_peixoto = ExpGroup([sbm_peixoto,wsbm_peixoto],
+                                    corpus=net_final,
+                                    training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
+                                    _refdir="ai19_1",
+                             )
+
     aistats_design_final = ExpGroup([wmmsb, mmsb, wsbm, sbm_peixoto, wsbm_peixoto],
                                   corpus=net_final,
                                   training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges

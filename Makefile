@@ -9,13 +9,11 @@ install: fetch_data
 dep:
 	sudo apt-get install libgraphviz-dev
 
-fetch_data: net_data text_data lut
+fetch_data: net_data text_data
 
 net_data:
-	pushd data/
 	mkdir -p .pmk/
-	python3 fetch_datasets.py
-	pushd
+	python3 data/fetch_datasets.py
 
 text_data:
 
