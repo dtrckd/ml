@@ -23,6 +23,8 @@ class immsb_scvb3(RandomGraphModel):
     def _init_params(self, frontend):
         self.frontend = frontend
 
+        self._edges_data =  frontend.get_edges()
+
         # Save the testdata
         if hasattr(self.frontend, 'data_test'):
             data_test = frontend.data_test_w
@@ -233,13 +235,7 @@ class immsb_scvb3(RandomGraphModel):
 
         # Expected weight per block
         pp = np.zeros((K,K))
-        weights = self.frontend.data.ep['weights']
-        #edges = self.frontend.data.get_edges()
-        try: # 2.29 breaks comptibility
-            edges = self.frontend.data.get_edges([self.frontend.data.edge_index])
-        except TypeError as e:
-            edges = self.frontend.data.get_edges()
-        edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
+        edges = self._edges_data
         for i,j,w in edges:
             pp[c[i], c[j]] += w
 

@@ -106,16 +106,11 @@ class sbm_aicher(RandomGraphModel):
         old_taus = [np.inf]
 
         weights = frontend.data.ep['weights']
-        #edges = frontend.data.get_edges()
-        try: # 2.29 breaks comptibility
-            edges = self.frontend.data.get_edges([self.frontend.data.edge_index])
-        except TypeError as e:
-            edges = self.frontend.data.get_edges()
-        edges[:,2] = np.array([weights[i,j] for i,j,_ in edges])
+        edges = self._edges_data
         neigs = []
         for v in range(N):
-            _out = np.asarray([(int(_v),weights[v, _v]) for _v in frontend.data.vertex(v).out_neighbors()])
-            _in  = np.asarray([(int(_v),weights[_v, v]) for _v in frontend.data.vertex(v).in_neighbors()])
+            _out = np.asarray([(int(_v),weights[frontend.data.edge(v, _v)]) for _v in frontend.data.vertex(v).out_neighbors()])
+            _in  = np.asarray([(int(_v),weights[frontend.data.edge(_v, v)]) for _v in frontend.data.vertex(v).in_neighbors()])
             neigs.append([_out, _in])
 
         ### Loop

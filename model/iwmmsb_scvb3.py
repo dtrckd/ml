@@ -28,6 +28,8 @@ class iwmmsb_scvb3(RandomGraphModel):
     def _init_params(self, frontend):
         self.frontend = frontend
 
+        self._edges_data =  frontend.get_edges()
+
         # Save the testdata
         if hasattr(self.frontend, 'data_test'):
             data_test = frontend.data_test_w
