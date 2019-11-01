@@ -8,7 +8,7 @@ from pymake.util.math import expnormalize, lognormalize
 from ml.model import ExpFamConj
 from ml.model import RandomGraphModel
 
-import pysnooper
+#import pysnooper
 #np.seterr(all='raise')
 
 class sbm_aicher(RandomGraphModel):
