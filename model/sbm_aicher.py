@@ -105,13 +105,8 @@ class sbm_aicher(RandomGraphModel):
         old_mus = [np.inf]
         old_taus = [np.inf]
 
-        weights = frontend.data.ep['weights']
         edges = self._edges_data
-        neigs = []
-        for v in range(N):
-            _out = np.asarray([(int(_v),weights[frontend.data.edge(v, _v)]) for _v in frontend.data.vertex(v).out_neighbors()])
-            _in  = np.asarray([(int(_v),weights[frontend.data.edge(_v, v)]) for _v in frontend.data.vertex(v).in_neighbors()])
-            neigs.append([_out, _in])
+        neigs = frontend.get_neigs()
 
         ### Loop
         max_iter = self.expe.get('max_iter', 100)
