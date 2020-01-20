@@ -230,9 +230,9 @@ class RandomGraphModel(ModelBase):
         # number of possible edges per block
         norm = np.outer(c_len,c_len)
         if not self._is_symmetric:
-            np.fill_diagonal(norm, 2*(norm.diagonal()-c_len))
+            np.fill_diagonal(norm, (norm.diagonal()-c_len))
         else:
-            np.fill_diagonal(norm, norm.diagonal()-c_len)
+            np.fill_diagonal(norm, (norm.diagonal()-c_len)/2)
         norm = ma.masked_where(norm<=0, norm)
 
         # Expected weight per block

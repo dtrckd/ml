@@ -2,18 +2,20 @@ from pymake import ExpSpace, ExpTensor, Corpus, ExpDesign, ExpGroup
 
 class Aistats19(ExpDesign):
 
-    _alias = {'ml.iwmmsb_scvb3' : 'WMMSB-scvb',
-              'ml.iwmmsb_scvb3_auto' : 'WMMSB-bg',
-              'ml.immsb_scvb3' : 'MMSB-bg',
+    _alias = {'ml.iwmmsb_scvb3' : 'WMMSB-bg',
+              'ml.immsb_scvb3' : 'MMSB-scvb',
               'ml.sbm_gt' : 'SBM-gt',
               'ml.wsbm_gt' : 'WSBM-gt',
+              'ml.sbm_ai' : 'SBM-ai',
+              'ml.wsbm_ai_n' : 'WSBM-ai-n',
+              'ml.wsbm_ai_p' : 'WSBM-ai-p',
 
               'link-dynamic-simplewiki': 'wiki-link',
               'munmun_digg_reply': 'digg-reply',
               'slashdot-threads': 'slashdot', }
 
     net_final = Corpus(['fb_uc',
-                        'manufacturing',
+                        #'manufacturing',
                         'hep-th',
                         'link-dynamic-simplewiki',
                         'enron',
@@ -25,6 +27,7 @@ class Aistats19(ExpDesign):
 
     base_graph = dict(
         corpus = 'manufacturing',
+        _seed = 'corpus',
         testset_ratio = 20,
         validset_ratio = 10,
         training_ratio = 100,
@@ -70,6 +73,16 @@ class Aistats19(ExpDesign):
                      tau_tol = 0.001,
                      max_iter = 100,
                     )
+    wsbm_1 = ExpTensor(wsbm, model='sbm_ai',
+                      kernel='bernoulli',
+                     )
+    wsbm_2 = ExpTensor(wsbm, model='wsbm_ai_n',
+                      kernel='normal',
+                     )
+    wsbm_3 = ExpTensor(wsbm, model='wsbm_ai_p',
+                      kernel='poisson',
+                     )
+    wsbm_t = ExpGroup([wsbm_1, wsbm_2, wsbm_3], _model='ml.sbm_aicher')
 
     wmmsb = ExpTensor(base_graph, model="iwmmsb_scvb3",
                      chunk = 'stratify',
@@ -107,7 +120,7 @@ class Aistats19(ExpDesign):
                                     _refdir="ai19_1",
                              )
 
-    aistats_design_final = ExpGroup([wmmsb, mmsb, wsbm, sbm_peixoto, wsbm_peixoto],
+    aistats_design_final = ExpGroup([wmmsb, mmsb, wsbm_t, sbm_peixoto, wsbm_peixoto],
                                   corpus=net_final,
                                   training_ratio=[1, 5,10,20,30, 50, 100],  # subsample the edges
                                   _refdir="ai19_1",

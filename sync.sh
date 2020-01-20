@@ -1,15 +1,20 @@
 #!/bin/bash
 
+### Remote Location
 # from pmk_config
 SSH='adulac@tiger'
 IN="/home/ama/adulac/workInProgress/networkofgraphs/process/repo/ml"
+
+#SSH='admin@35.180.46.51'
+#IN="~/ml"
+
+### Local location
 OUT="./"
+### Target
 BASE=".pmk/results"
-
-
 # from commandline
 REFDIR="ai19_1"
-EXT='inf'
+#EXT='inf'
 
 #FILTER='--include "*/" --include "*noel3***"  --exclude "*"'
 #FILTER='--include "*/" --include "*pnas3/***" --exclude "*" '
@@ -36,13 +41,12 @@ fi
 
 
 
-
 #rsync $SIMUL  -av -u --modify-window=2 --stats -m $OPTS \
-eval rsync $SIMUL $OPTS $INCL  -vah --stats -m $FILTER \
+eval rsync $SIMUL $OPTS $INCL $FILTER -vah --stats -m \
     -e ssh  $SSH:$IN/$BASE/$REFDIR/ $OUT/$BASE/$REFDIR
 
 echo
-echo "rsync $SIMUL $OPTS $INCL -vah --stats -m $FILTER -e ssh  $SSH:$IN/$BASE/$REFDIR/ $OUT/$BASE/$REFDIR"
+echo "rsync $SIMUL $OPTS $INCL $FILTER -vah --stats -m -e ssh  $SSH:$IN/$BASE/$REFDIR/ $OUT/$BASE/$REFDIR"
 
 ###
 #rsync --dry-run  -av -u --modify-window=2  --stats --prune-empty-dirs  -e ssh --include '*/'  --include='debug/***' --exclude='*'  ./ dulac@pitmanyor:/home/dulac/ddebug

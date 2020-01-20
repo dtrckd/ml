@@ -1,22 +1,23 @@
 # Machine Learning Project
 
-This repo contains currently (earlt '18) models and design  for two kind of data type :
+This repo contains models and design for several type of data structure.
 
-### Networks 
+Install: `make install`
 
-Available **model**:
+## Networks
+
+Available **models**:
 * IFLM : Infinte Latent Feature Model
 * MMSB/IMMSB : (Infinite) Mixed Membership Stochatisc Blockmodel
 * MMSB and WMMB :Stochastic Variational Inference Scheme
 * Rescal from `mnick/rescal.py`
 * SBM from `graph-tool` package
 
-Available **corpus**:
-Corpus from: http://konect.uni-koblenz.de/networks/ 
+Available **corpuses**:
+Corpus from: http://konect.uni-koblenz.de/networks/
 WIP
 
 
-### Text
+## Text
 Available **model**:
 * LDA/HDP
-

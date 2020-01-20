@@ -43,6 +43,14 @@ class Plot(ExpeFormat):
 
     def _extract_data(self, z, data, *args):
 
+        # Hook
+        if self.expe.get('_refdir') == 'ai19_1' and False:
+            if not ('mmsb' in self.s.model or 'wmmsb' in self.s.model):
+                if not 'roc2' in z:
+                    z = z.replace('roc', 'roc2')
+                if not 'wsim2' in z:
+                    z = z.replace('wsim', 'wsim2')
+
         value = None
 
         if z in data:
@@ -76,7 +84,12 @@ class Plot(ExpeFormat):
             if hasattr(model, 'compute_'+z):
                 value = getattr(model, 'compute_'+z)(**self.expe)
             elif hasattr(self, 'get_'+z):
-                value = getattr(self, 'get_'+z)()[-1]
+                _val = getattr(self, 'get_'+z)()
+                if isinstance(_val, (list, np.ndarray)):
+                    value = _val[-1]
+                else:
+                    value = _val
+
             else:
                 self.log.error('attribute unknown: %s' % z)
                 return
@@ -283,8 +296,6 @@ class Plot(ExpeFormat):
         return
 
 
-
-
     #
     # ml/model specific measure.
     #
@@ -294,6 +305,60 @@ class Plot(ExpeFormat):
         entropy = self._to_masked(data['_entropy'])
         nnz = self.model._data_test.shape[0]
         return 2 ** (-entropy / nnz)
+
+    # @ temp specific
+    def get_wsim3(self):
+        ''' Based on the count in mixed membership class and data count. '''
+        model = self.load_model(load=True)
+
+        y_true, probas = model.get_ytrue_probas()
+
+        theta, phi = model._reduce_latent()
+
+        N,K = theta.shape
+        # class assignement
+        c = theta.argmax(1) # @cache
+
+        theta_hard = np.zeros_like(theta)
+        theta_hard[np.arange(len(theta)), c] = 1 # @cache
+        c_len = theta_hard.sum(0)
+
+        # number of possible edges per block
+        norm = np.outer(c_len,c_len)
+        if not model._is_symmetric:
+            np.fill_diagonal(norm, 2*(norm.diagonal()-c_len))
+        else:
+            np.fill_diagonal(norm, norm.diagonal()-c_len)
+        norm = ma.masked_where(norm<=0, norm)
+
+        # Expected weight per block
+        pp = np.zeros((K,K))
+        edges = model._edges_data
+        for i,j,w in edges:
+            pp[c[i], c[j]] += w
+
+        pp = pp / norm
+
+        data = getattr(model, 'data_test')
+        qij = ma.array([ pp[c[i], c[j]] for i,j,_ in data])
+
+        if ma.is_masked(qij):
+            return None
+
+        wd = data[:,2].T
+        ws = qij
+
+        idx = wd > 0
+        wd = wd[idx]
+        ws = ws[idx]
+
+        ## l1 norm
+        #nnz = len(wd)
+        #mean_dist = np.abs(ws - wd).sum() / nnz
+        ## L2 norm
+        mean_dist = mean_squared_error(wd, ws)
+
+        return mean_dist
 
     def roc(self):
         ''' Receiver Operating Curve. '''
@@ -339,7 +404,8 @@ class Plot(ExpeFormat):
         if self.is_first_expe():
             D = self.D
             axis = ['_repeat', 'training_ratio', 'corpus', 'model']
-            z = ['_entropy@_roc']
+            #z = ['_entropy@_roc']
+            z = ['roc']
             #z = ['_entropy@_wsim']
             D.array, D.floc = self.gramexp.get_array_loc_n(axis, z)
             D.z = z

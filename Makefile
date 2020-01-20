@@ -30,6 +30,4 @@ lut:
 	@cd ..
 	@rm -rf temp_junk/
 
-
-
 clean_data:
