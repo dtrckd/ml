@@ -126,6 +126,13 @@ class Aistats19(ExpDesign):
                                   _refdir="ai19_1",
                              )
 
+    aistats_design_final_2 = ExpGroup([wmmsb, mmsb, wsbm_t, sbm_peixoto, wsbm_peixoto],
+                                      corpus=net_final,
+                                      K = [20,30,50],
+                                      training_ratio=[10,100],  # subsample the edges
+                                      _refdir="ai19_1",
+                                     )
+
     # note of dev to remove:
     #
     # ow: only weighted edges (third  dimension=1)
