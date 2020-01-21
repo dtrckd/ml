@@ -73,16 +73,19 @@ class Aistats19(ExpDesign):
                      tau_tol = 0.001,
                      max_iter = 100,
                     )
-    wsbm_1 = ExpTensor(wsbm, model='sbm_ai',
-                      kernel='bernoulli',
-                     )
-    wsbm_2 = ExpTensor(wsbm, model='wsbm_ai_n',
-                      kernel='normal',
-                     )
-    wsbm_3 = ExpTensor(wsbm, model='wsbm_ai_p',
-                      kernel='poisson',
-                     )
-    wsbm_t = ExpGroup([wsbm_1, wsbm_2, wsbm_3], _model='ml.sbm_aicher')
+    wsbm_1 = ExpTensor(wsbm, model='ml.sbm_aicher',
+                       #_model='ml.sbm_aicher',
+                       kernel='bernoulli',
+                      )
+    wsbm_2 = ExpTensor(wsbm, model='ml.sbm_aicher',
+                       #_model='ml.sbm_aicher',
+                       kernel='normal',
+                      )
+    wsbm_3 = ExpTensor(wsbm, model='ml.sbm_aicher',
+                       #_model='ml.sbm_aicher',
+                       kernel='poisson',
+                      )
+    wsbm_t = ExpGroup([wsbm_1, wsbm_2, wsbm_3])
 
     wmmsb = ExpTensor(base_graph, model="iwmmsb_scvb3",
                      chunk = 'stratify',
