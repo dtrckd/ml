@@ -20,24 +20,24 @@ class RandomGraphModel(ModelBase):
     def _init_params(self, frontend):
         frontend = self.frontend
 
-        self._edges_data =  frontend.get_edges()
+        self._edges_data = frontend.get_edges()
 
         # Save the testdata
         if hasattr(self.frontend, 'data_test'):
             data_test = frontend.data_test_w
 
             N = frontend.num_nodes()
-            valid_ratio = frontend.get_validset_ratio() *2 # Because links + non_links...
+            valid_ratio = frontend.get_validset_ratio() * 2 # Because links + non_links...
             n_valid = np.random.choice(len(data_test), int(np.round(N*valid_ratio / (1+valid_ratio))), replace=False)
             n_test = np.arange(len(data_test))
             n_test[n_valid] = -1
-            n_test = n_test[n_test>=0]
+            n_test = n_test[n_test >= 0]
             self.data_test = data_test[n_test]
             self.data_valid = data_test[n_valid]
 
             # if kernel == bernoulli
             # For fast computation of bernoulli pmf.
-            self._w_a = self.data_valid[:,2].T.astype(int)
+            self._w_a = self.data_valid[:, 2].T.astype(int)
             self._w_a[self._w_a > 0] = 1
             self._w_a[self._w_a == 0] = -1
             self._w_b = np.zeros(self._w_a.shape, dtype=int)
@@ -63,8 +63,8 @@ class RandomGraphModel(ModelBase):
     def _reduce_latent(self):
         return self._theta, self._phi
 
-
     # the Binaray case (Bernoulli model)
+
     def likelihood(self, theta=None, phi=None, data='valid'):
         """ Compute data likelihood (abrev. ll) with the given estimators
             onthe given set of data.
@@ -88,12 +88,12 @@ class RandomGraphModel(ModelBase):
         elif data == 'test':
             data = self.data_test
 
-        qijs = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,_ in data])
+        qijs = np.array([theta[i].dot(phi).dot(theta[j]) for i, j, _ in data])
 
         qijs = qijs * self._w_a + self._w_b
 
         #qijs = ma.masked_invalid(qijs)
-        qijs[qijs<=1e-300] = 1e-200
+        qijs[qijs <= 1e-300] = 1e-200
         return qijs
 
     def posterior(self, theta=None, phi=None, data='test'):
@@ -111,16 +111,17 @@ class RandomGraphModel(ModelBase):
         if phi is None:
             phi = self._phi
 
-        if data == 'valid':
+        if not isinstance(data, str):
+            pass
+        elif data == 'valid':
             data = self.data_valid
         elif data == 'test':
             data = self.data_test
 
-        qijs = np.array([ theta[i].dot(phi).dot(theta[j]) for i,j,_ in data])
+        qijs = np.array([theta[i].dot(phi).dot(theta[j]) for i, j, _ in data])
 
         #qijs = ma.masked_invalid(qijs)
         return qijs
-
 
     def compute_entropy(self, theta=None, phi=None, data='valid', **kws):
         if theta is None:
@@ -140,7 +141,7 @@ class RandomGraphModel(ModelBase):
         qij = self.posterior(theta, phi, data)
         data = getattr(self, 'data_'+data)
 
-        self._y_true = np.squeeze(data[:,2].T).astype(bool)*1
+        self._y_true = np.squeeze(data[:, 2].T).astype(bool)*1
         self._probas = qij
 
         fpr, tpr, thresholds = roc_curve(self._y_true, self._probas)
@@ -152,7 +153,7 @@ class RandomGraphModel(ModelBase):
         if theta is None:
             theta, phi = self._reduce_latent()
 
-        N,K = self._theta.shape
+        N, K = self._theta.shape
         # class assignement
         c = self._theta.argmax(1) # @cache
 
@@ -161,23 +162,23 @@ class RandomGraphModel(ModelBase):
         c_len = theta_hard.sum(0)
 
         # number of possible edges per block
-        norm = np.outer(c_len,c_len)
+        norm = np.outer(c_len, c_len)
         if not self._is_symmetric:
             np.fill_diagonal(norm, 2*(norm.diagonal()-c_len))
         else:
             np.fill_diagonal(norm, norm.diagonal()-c_len)
-        norm = ma.masked_where(norm<=0, norm)
+        norm = ma.masked_where(norm <= 0, norm)
 
         # Expected weight per block
-        pp = np.zeros((K,K))
+        pp = np.zeros((K, K))
         edges = self._edges_data
-        for i,j,w in edges:
+        for i, j, w in edges:
             pp[c[i], c[j]] += 1
 
         pp = pp / norm
 
         data = getattr(self, 'data_'+data)
-        probas = ma.array([ pp[c[i], c[j]] for i,j,_ in data])
+        probas = ma.array([pp[c[i], c[j]] for i, j, _ in data])
 
         if ma.is_masked(probas):
             return None
@@ -198,7 +199,7 @@ class RandomGraphModel(ModelBase):
         qij = self.posterior(theta, phi, data)
         data = getattr(self, 'data_'+data)
 
-        wd = data[:,2].T
+        wd = data[:, 2].T
         ws = qij
 
         idx = wd > 0
@@ -213,13 +214,12 @@ class RandomGraphModel(ModelBase):
 
         return mean_dist
 
-
     def compute_wsim2(self, theta=None, phi=None, data='test', **kws):
         ''' Based on the count in hard class (argmax) assignement and data count. '''
         if theta is None:
             theta, phi = self._reduce_latent()
 
-        N,K = self._theta.shape
+        N, K = self._theta.shape
         # class assignement
         c = self._theta.argmax(1) # @cache
 
@@ -228,28 +228,28 @@ class RandomGraphModel(ModelBase):
         c_len = theta_hard.sum(0)
 
         # number of possible edges per block
-        norm = np.outer(c_len,c_len)
+        norm = np.outer(c_len, c_len)
         if not self._is_symmetric:
             np.fill_diagonal(norm, (norm.diagonal()-c_len))
         else:
             np.fill_diagonal(norm, (norm.diagonal()-c_len)/2)
-        norm = ma.masked_where(norm<=0, norm)
+        norm = ma.masked_where(norm <= 0, norm)
 
         # Expected weight per block
-        pp = np.zeros((K,K))
+        pp = np.zeros((K, K))
         edges = self._edges_data
-        for i,j,w in edges:
+        for i, j, w in edges:
             pp[c[i], c[j]] += w
 
         pp = pp / norm
 
         data = getattr(self, 'data_'+data)
-        qij = ma.array([ pp[c[i], c[j]] for i,j,_ in data])
+        qij = ma.array([pp[c[i], c[j]] for i, j, _ in data])
 
         if ma.is_masked(qij):
             return None
 
-        wd = data[:,2].T
+        wd = data[:, 2].T
         ws = qij
 
         idx = wd > 0
@@ -289,7 +289,7 @@ class SVB(ModelBase):
         _nnz = []
         for g in groups:
             if self._is_symmetric:
-                count = 2* len(g)
+                count = 2 * len(g)
                 #count =  len(g)
             else:
                 count = len(g)
@@ -325,7 +325,6 @@ class SVB(ModelBase):
 
         return chunk
 
-
     def fit(self, *args, **kwargs):
         ''' chunk is the number of row to threat in a minibach '''
 
@@ -337,7 +336,7 @@ class SVB(ModelBase):
         self._update_chunk_nnz(chunk_groups)
 
         self._entropy = self.compute_entropy()
-        print( '__init__ Entropy: %f' % self._entropy)
+        print('__init__ Entropy: %f' % self._entropy)
         for _id_mnb, minibatch in enumerate(chunk_groups):
 
             self.mnb_size = self._nnz_vector[_id_mnb]
@@ -348,7 +347,7 @@ class SVB(ModelBase):
             self.compute_measures(begin_it)
             print('.', end='')
             self.log.info('Minibatch %d/%d, %s, Entropy: %f,  diff: %f' % (_id_mnb+1, self.chunk_len, '/'.join((self.expe.model, self.expe.corpus)),
-                                                                        self._entropy, self.entropy_diff))
+                                                                           self._entropy, self.entropy_diff))
             if self.expe.get('_write'):
                 self.write_current_state(self)
                 if _id_mnb > 0 and _id_mnb % self.snapshot_freq == 0:
@@ -378,13 +377,12 @@ class SVB(ModelBase):
                 self.maximization(iter)
                 self.expectation(iter, burnin=burnin)
 
-
             if self._iteration != self.iterations-1 and self.expe.get('_verbose', 20) < 20:
                 self.compute_measures()
-                self.log.debug('it %d,  ELBO: %f, elbo diff: %f \t K=%d' % (_it, self._entropy, self.entropy_diff, self._K))
+                self.log.debug('it %d,  ELBO: %f, elbo diff: %f \t K=%d' %
+                               (_it, self._entropy, self.entropy_diff, self._K))
                 if self.expe.get('_write'):
                     self.write_current_state(self)
-
 
         # Update global parameters after each "minibatech of links"
         # @debug if not, is the time_step evolve differently for N_Phi and N_Theta.
@@ -396,7 +394,6 @@ class SVB(ModelBase):
         #    print('ELBO get stuck during data iteration: Sampling useless, return ?!')
 
 
-
 class GibbsSampler(ModelBase):
     ''' Implemented method, except fit (other?) concerns MMM type models:
         * LDA like
@@ -406,6 +403,7 @@ class GibbsSampler(ModelBase):
         -> use a decorator @mmm to get latent variable ...
     '''
     __abstractmethods__ = 'model'
+
     def __init__(self, expe, frontend):
         super(GibbsSampler, self).__init__(expe, frontend)
 
@@ -426,11 +424,11 @@ class GibbsSampler(ModelBase):
             self._roc = self.compute_roc()
 
         self._alpha = np.nan
-        self._gmma= np.nan
+        self._gmma = np.nan
         self.alpha_mean = np.nan
         self.delta_mean = np.nan
         self.alpha_var = np.nan
-        self.delta_var= np.nan
+        self.delta_var = np.nan
 
         self.time_it = time() - begin_it
 
@@ -439,7 +437,7 @@ class GibbsSampler(ModelBase):
         self._init()
 
         self._entropy = self.compute_entropy()
-        print( '__init__ Entropy: %f' % self._entropy)
+        print('__init__ Entropy: %f' % self._entropy)
 
         for _it in range(self.iterations):
             self._iteration = _it
@@ -455,7 +453,7 @@ class GibbsSampler(ModelBase):
             self.compute_measures(begin_it)
             print('.', end='')
             self.log.info('iteration %d, %s, Entropy: %f \t\t K=%d  alpha: %f gamma: %f' % (_it, '/'.join((self.expe.model, self.expe.corpus)),
-                                                                                    self._entropy, self._K,self._alpha, self._gmma))
+                                                                                            self._entropy, self._K, self._alpha, self._gmma))
             if self.expe.get('_write'):
                 self.write_current_state(self)
                 if _it > 0 and _it % self.snapshot_freq == 0:
@@ -469,8 +467,8 @@ class GibbsSampler(ModelBase):
         self.samples = None # free space
         return
 
-
     #@mmm
+
     def update_hyper(self, hyper):
         if hyper is None:
             return
@@ -490,12 +488,12 @@ class GibbsSampler(ModelBase):
         if gmma:
             self._gmma = gmma
 
-
     # keep only the most representative dimension (number of topics) in the samples
     #@mmm
+
     def _reduce_latent(self):
         theta, phi = list(map(list, zip(*self.samples)))
-        ks = [ mat.shape[1] for mat in theta]
+        ks = [mat.shape[1] for mat in theta]
         bn = np.bincount(ks)
         k_win = np.argmax(bn)
         self.log.debug('K selected: %d' % k_win)
@@ -506,12 +504,9 @@ class GibbsSampler(ModelBase):
             theta.pop(i)
             phi.pop(i)
 
-        self.log.debug('Samples Selected: %d over %s' % (len(theta), len(theta)+len(ind_rm) ))
+        self.log.debug('Samples Selected: %d over %s' % (len(theta), len(theta)+len(ind_rm)))
 
         self._theta = np.mean(theta, 0)
         self._phi = np.mean(phi, 0)
         self.K = self._theta.shape[1]
         return self._theta, self._phi
-
-
-

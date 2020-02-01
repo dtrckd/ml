@@ -1,12 +1,14 @@
 #!/bin/bash
 
 ### Remote Location
-# from pmk_config
-SSH='adulac@tiger'
-IN="/home/ama/adulac/workInProgress/networkofgraphs/process/repo/ml"
+# machine
+#SSH='adulac@tiger'
+#IN="/home/ama/adulac/workInProgress/networkofgraphs/process/repo/ml"
 
-#SSH='admin@35.180.46.51'
-#IN="~/ml"
+# aws
+SSH='admin@15.188.55.178'
+IN="~/ml"
+# see .ssh/config to link .pem key
 
 ### Local location
 OUT="./"
@@ -14,7 +16,8 @@ OUT="./"
 BASE=".pmk/results"
 # from commandline
 REFDIR="ai19_1"
-#EXT='inf'
+
+#EXT='-20_'
 
 #FILTER='--include "*/" --include "*noel3***"  --exclude "*"'
 #FILTER='--include "*/" --include "*pnas3/***" --exclude "*" '
@@ -22,7 +25,6 @@ REFDIR="ai19_1"
 ### Parse Args
 SIMUL="-n"
 OPTS="--update"
-INCL=""
 
 if [ "$1" == "-f" -o "$2" == "-f" ]; then
     SIMUL=""
@@ -36,7 +38,8 @@ elif [ ! -z "$2" -a "$2" != "-f"  ]; then
 fi
 
 if [ ! -z "$EXT" ]; then
-    INCL="--include=*/ --include=*.$EXT --exclude=*"
+    INCL="--include=*/ --include=*$EXT* --exclude=*"
+    #INCL="--include=*/ --include=*.$EXT --exclude=*"
 fi
 
 

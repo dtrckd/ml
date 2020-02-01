@@ -17,7 +17,8 @@ Manage the data : This script is part of the repo/ml of pymake.
 
 class Data(ExpeFormat):
 
-    _default_expe = { '_expe_silent' : True }
+    _default_expe = { '_expe_silent' : True,
+                    }
 
     # @need an expe
     def completed(self, ext=None):
@@ -40,7 +41,7 @@ class Data(ExpeFormat):
 
 
     # @need an expe
-    def missing(self, ext=None):
+    def missing(self, ext='inf'):
         ''' Show missing expe. '''
         if self.is_first_expe():
             self.D.n_exp_total = self.expe_size

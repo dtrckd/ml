@@ -1,17 +1,14 @@
 import os
 import numpy as np
 from numpy import ma
+import matplotlib.pyplot as plt
 from pymake import GramExp, ExpeFormat, ExpSpace
 from pymake.frontend.manager import ModelManager, FrontendManager
 from pymake.plot import _markers, _colors, _linestyle
 
+from .post_compute import PostCompute
+
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
-from sklearn.metrics import mean_squared_error
-
-import matplotlib.pyplot as plt
-
-from loguru import logger
-lgg = logger
 
 
 USAGE = """\
@@ -20,22 +17,26 @@ Plot utility :
 ----------------
 """
 
-class Plot(ExpeFormat):
+
+#class Plot(ExpeFormat, PostCompute):
+class Plot(PostCompute): # @DEBUG: not modular, think bettter
 
     # Documentation !
     _default_expe = dict(
-        _label = lambda expe: '%s %s' % (expe._alias[expe.model], expe.get('delta')) if expe.model in expe._alias else False,
+        _label=lambda expe: '%s %s' % (expe._alias[expe.model], expe.get(
+            'delta')) if expe.model in expe._alias else False,
         legend_size=10,
         #_csv_sample = 2,
-        _csv_sample = None,
-        fig_burnin = 0
+        _csv_sample=None,
+        fig_burnin=0,
+        _expe_silent=True,
     )
 
     def _preprocess(self):
         pass
 
     def _to_masked(self, lst, dtype=float):
-        themask = lambda x:np.nan if x in ('--', 'None') else x
+        themask = lambda x: np.nan if x in ('--', 'None') else x
         if isinstance(lst, list):
             return ma.masked_invalid(np.array(list(map(themask, lst)), dtype=dtype))
         else:
@@ -44,11 +45,11 @@ class Plot(ExpeFormat):
     def _extract_data(self, z, data, *args):
 
         # Hook
-        if self.expe.get('_refdir') == 'ai19_1' and False:
+        if self.expe.get('_refdir') == 'ai19_1':
             if not ('mmsb' in self.s.model or 'wmmsb' in self.s.model):
                 if not 'roc2' in z:
                     z = z.replace('roc', 'roc2')
-                if not 'wsim2' in z:
+                if not 'wsim2' in z and not 'wsim3' in z:
                     z = z.replace('wsim', 'wsim2')
 
         value = None
@@ -74,6 +75,16 @@ class Plot(ExpeFormat):
             value = data[ag][value]
 
         else:
+
+            if hasattr(self, 'get_'+z):
+                _val = getattr(self, 'get_'+z)()
+                if isinstance(_val, (list, np.ndarray)):
+                    value = _val[-1]
+                else:
+                    value = _val
+
+                return value
+
             # Compute it directly from the model.
             self.model = ModelManager.from_expe(self.expe, load=True)
             if not self.model:
@@ -83,13 +94,6 @@ class Plot(ExpeFormat):
 
             if hasattr(model, 'compute_'+z):
                 value = getattr(model, 'compute_'+z)(**self.expe)
-            elif hasattr(self, 'get_'+z):
-                _val = getattr(self, 'get_'+z)()
-                if isinstance(_val, (list, np.ndarray)):
-                    value = _val[-1]
-                else:
-                    value = _val
-
             else:
                 self.log.error('attribute unknown: %s' % z)
                 return
@@ -97,10 +101,10 @@ class Plot(ExpeFormat):
         return value
 
     def __call__(self, *args, **kwargs):
-        return self.fig(*rags, **kwargs)
+        return self.fig(*args, **kwargs)
 
     @ExpeFormat.raw_plot('corpus')
-    def plot_old(self, frame,  attribute='_entropy'):
+    def plot_old(self, frame, attribute='_entropy'):
         ''' Plot figure group by :corpus:.
             Notes: likelihood/perplexity convergence report
         '''
@@ -118,7 +122,7 @@ class Plot(ExpeFormat):
 
         ax = frame.ax()
         ax.plot(values, label=description, marker=frame.markers.next())
-        ax.legend(loc='upper right',prop={'size':5})
+        ax.legend(loc='upper right', prop={'size': 5})
 
     @ExpeFormat.raw_plot
     def plot_unique(self, attribute='_entropy'):
@@ -137,8 +141,7 @@ class Plot(ExpeFormat):
         description = '/'.join((expe._refdir, os.path.basename(self.output_path)))
 
         plt.plot(values, label=description, marker=_markers.next())
-        plt.legend(loc='upper right',prop={'size':1})
-
+        plt.legend(loc='upper right', prop={'size': 1})
 
     @ExpeFormat.plot()
     def fig(self, frame, attribute):
@@ -181,8 +184,8 @@ class Plot(ExpeFormat):
             except ValueError as e:
                 x = np.array(data[xaxis_name], dtype=float)
 
-            xmax = frame.get('xmax',[])
-            xmin = frame.get('xmin',[])
+            xmax = frame.get('xmax', [])
+            xmin = frame.get('xmin', [])
             xmax.append(max(x))
             xmax.append(min(x))
             frame.xmax = xmax
@@ -217,7 +220,6 @@ class Plot(ExpeFormat):
             x = x[burnin:]
             values = values[burnin:]
 
-
         if frame.is_errorbar:
             if self.is_first_expe() or not hasattr(self.D, 'cont'):
                 self.D.cont = {}
@@ -238,11 +240,12 @@ class Plot(ExpeFormat):
                     x = d.x[arg_max_len]
                     max_len = len(x)
                     y = self._to_masked([y.tolist()+[np.nan]*(max_len-len(y)) for y in d.y])
-                    ax.errorbar(x, y.mean(0), yerr=y.std(0), label=description, fmt=frame.markers.next(), ls=self.linestyles.next())
-                    ax.legend(loc=expe.get('fig_legend',1), prop={'size':expe.get('legend_size',5)})
+                    ax.errorbar(x, y.mean(0), yerr=y.std(0), label=description,
+                                fmt=frame.markers.next(), ls=self.linestyles.next())
+                    ax.legend(loc=expe.get('fig_legend', 1), prop={'size': expe.get('legend_size', 5)})
         else:
             ax.plot(x, values, label=description, marker=frame.markers.next())
-            ax.legend(loc=expe.get('fig_legend',1), prop={'size':expe.get('legend_size',5)})
+            ax.legend(loc=expe.get('fig_legend', 1), prop={'size': expe.get('legend_size', 5)})
 
         #if self.is_last_expe() and expe.get('fig_xaxis'):
         #    for frame in self.get_figs():
@@ -253,7 +256,6 @@ class Plot(ExpeFormat):
         #        ax.set_xticks(x)
 
         return
-
 
     @ExpeFormat.expe_repeat
     @ExpeFormat.table()
@@ -295,70 +297,14 @@ class Plot(ExpeFormat):
 
         return
 
-
     #
     # ml/model specific measure.
     #
-
 
     def get_perplexity(self, data):
         entropy = self._to_masked(data['_entropy'])
         nnz = self.model._data_test.shape[0]
         return 2 ** (-entropy / nnz)
-
-    # @ temp specific
-    def get_wsim3(self):
-        ''' Based on the count in mixed membership class and data count. '''
-        model = self.load_model(load=True)
-
-        y_true, probas = model.get_ytrue_probas()
-
-        theta, phi = model._reduce_latent()
-
-        N,K = theta.shape
-        # class assignement
-        c = theta.argmax(1) # @cache
-
-        theta_hard = np.zeros_like(theta)
-        theta_hard[np.arange(len(theta)), c] = 1 # @cache
-        c_len = theta_hard.sum(0)
-
-        # number of possible edges per block
-        norm = np.outer(c_len,c_len)
-        if not model._is_symmetric:
-            np.fill_diagonal(norm, 2*(norm.diagonal()-c_len))
-        else:
-            np.fill_diagonal(norm, norm.diagonal()-c_len)
-        norm = ma.masked_where(norm<=0, norm)
-
-        # Expected weight per block
-        pp = np.zeros((K,K))
-        edges = model._edges_data
-        for i,j,w in edges:
-            pp[c[i], c[j]] += w
-
-        pp = pp / norm
-
-        data = getattr(model, 'data_test')
-        qij = ma.array([ pp[c[i], c[j]] for i,j,_ in data])
-
-        if ma.is_masked(qij):
-            return None
-
-        wd = data[:,2].T
-        ws = qij
-
-        idx = wd > 0
-        wd = wd[idx]
-        ws = ws[idx]
-
-        ## l1 norm
-        #nnz = len(wd)
-        #mean_dist = np.abs(ws - wd).sum() / nnz
-        ## L2 norm
-        mean_dist = mean_squared_error(wd, ws)
-
-        return mean_dist
 
     def roc(self):
         ''' Receiver Operating Curve. '''
@@ -372,9 +318,9 @@ class Plot(ExpeFormat):
 
         plt.plot(fpr, tpr, label='%s | auc=%0.2f' % (description, roc_auc))
 
-        if self._it == self.expe_size -1:
+        if self._it == self.expe_size - 1:
             plt.plot([0, 1], [0, 1], linestyle='--', color='k', label='Luck')
-            plt.legend(loc="lower right", prop={'size':self.s.get('legend_size',5)})
+            plt.legend(loc="lower right", prop={'size': self.s.get('legend_size', 5)})
 
     def prc(self):
         ''' Precision/Recall Curve. '''
@@ -387,7 +333,6 @@ class Plot(ExpeFormat):
         description = self.get_description()
 
         plt.plot(recall, precision, label='%s | precision=%0.2f' % (description, avg_precision))
-
 
     #
     # Specific
@@ -468,9 +413,9 @@ class Plot(ExpeFormat):
                     xaxis = np.array(list(map(int, Meas))) #+ jitter[ii]
                     if _type == 'errorbar':
                         ls = self.linestyles.next()
-                        _std[_std> 0.15] = 0.15
-                        _std[_std< -0.15] = -0.15
-                        eb = ax.errorbar(xaxis , _mean, yerr=_std,
+                        _std[_std > 0.15] = 0.15
+                        _std[_std < -0.15] = -0.15
+                        eb = ax.errorbar(xaxis, _mean, yerr=_std,
                                          fmt=self.markers.next(), ls=ls,
                                          #errorevery=3,
                                          #c=self.colors.next(),
@@ -478,17 +423,17 @@ class Plot(ExpeFormat):
                         eb[-1][0].set_linestyle(ls)
                     elif _type == 'boxplot':
                         for meu, meas in enumerate(Meas):
-                            bplot = table[:, meu,]
+                            bplot = table[:, meu, ]
                             w = 0.2
                             eps = 0.01
-                            ax.boxplot(bplot,  widths=w,
+                            ax.boxplot(bplot, widths=w,
                                        positions=[meu],
                                        #positions=[meas],
                                        #positions=[int(meas)+(meu+eps)*w],
-                                       whis='range' )
+                                       whis='range')
 
                 if _type == 'errorbar':
-                    ax.legend(loc='lower right',prop={'size':8})
+                    ax.legend(loc='lower right', prop={'size': 8})
                     ymin = array.min()
                     ymin = 0.45
                     ax.set_ylim(ymin)
@@ -501,7 +446,105 @@ class Plot(ExpeFormat):
                 ax.set_title(self.specname(corpus), fontsize=20)
                 ax.set_xlabel('percentage of the training edges')
                 ax.set_ylabel('AUC-ROC')
-                figs[corpus] = {'fig':fig, 'base': self.D.z[0]+'_evo'}
+                figs[corpus] = {'fig': fig, 'base': self.D.z[0]+'_evo'}
+
+            if expe._write:
+                self.write_frames(figs)
+
+    def k_evolution(self, meas='wsim', *args):
+
+        expe = self.expe
+        if self.is_first_expe():
+            D = self.D
+            axis = ['_repeat', 'K', 'corpus', 'model']
+            z = [meas]
+            D.array, D.floc = self.gramexp.get_array_loc_n(axis, z)
+            D.z = z
+            D.axis = axis
+
+        array = self.D.array
+        floc = self.D.floc
+        z = self.D.z[0]
+
+        data = self.load_some()
+        if not data:
+            self.log.warning('No data for expe : %s' % self.output_path)
+            return
+
+        value = self._extract_data(z, data, *args)
+
+        pos = floc(expe, z)
+        if value:
+            array[pos] = value
+
+        if self.is_last_expe():
+            corpuses = self.get_expset('corpus')
+            models = self.get_expset('model')
+            Ks = self.get_expset('K')
+            figs = dict()
+            for corpus in corpuses:
+                self.markers.reset()
+                self.colors.reset()
+                self.linestyles.reset()
+
+                bars_k = list()
+                yerrs_k = list()
+
+                fig = plt.figure()
+                ax = fig.gca()
+
+                for K in Ks:
+                    bars_m = []
+                    yerrs_m = []
+                    for model in models:
+                        idx0 = Ks.index(K)
+                        idx1 = corpuses.index(corpus)
+                        idx2 = models.index(model)
+                        table = array[:, idx0, idx1, idx2]
+                        bars_m.append(table.mean(0)[0])
+                        yerrs_m.append(table.std(0)[0])
+                    bars_k.append(bars_m)
+                    yerrs_k.append(yerrs_m)
+
+                barss = list(zip(*bars_k))
+                yerrss = list(zip(*yerrs_k))
+
+                # width of the bars
+                barWidth = 0.1
+
+                poss = []
+                for i in range(len(barss)):
+                    # The x position of bars
+                    poss.append(np.arange(len(barss[i])) + i*barWidth*np.ones(len(barss[i])))
+                    #r2 = [x + barWidth for x in r1]
+
+                for i in range(len(barss)):
+                    pos = poss[i]
+                    bars = barss[i]
+                    yerrs = yerrss[i]
+
+                    #ax.bar(pos, bars, width=barWidth, color=self.colors.next(),
+                    #       edgecolor='black', yerr=yerrs, capsize=7)
+                    ax.errorbar(pos, bars, yerr=yerrs, fmt='o', label=self.s._alias[models[i]])
+
+                    # Create cyan bars
+                    #plt.bar(r2, bars2, width=barWidth, color='cyan', edgecolor='black', yerr=yer2, capsize=7)
+
+                # general layout
+                ax.set_xticks([r + barWidth for r in range(len(bars))])
+                labels = ['K=%d' % k for k in Ks]
+                ax.set_xticklabels(labels, rotation=0)
+
+                # Text on the top of each barplot
+                #labels = ['K = 20', 'K = 50']
+                #for i in range(2):
+                #    plt.text(x=i + i*2 - 0.5, y=12+0.1, s=labels[i], size=6)
+
+                ax.set_ylabel(z)
+                ax.set_title(corpus)
+                ax.legend(loc="lower right", prop={'size': self.s.get('legend_size', 5)})
+
+                figs[corpus] = {'fig': fig, 'base': z+'_evo2'}
 
             if expe._write:
                 self.write_frames(figs)
@@ -509,4 +552,3 @@ class Plot(ExpeFormat):
 
 if __name__ == '__main__':
     GramExp.generate().pymake(Plot)
-

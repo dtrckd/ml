@@ -50,7 +50,7 @@ class Fit(ExpeFormat):
         self()
 
 
-    def fit_missing(self, ext=None):
+    def fit_missing(self, ext='inf'):
 
         is_fitted = self.gramexp.make_output_path(self.expe, ext=ext, status='f')
         if not is_fitted:

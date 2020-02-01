@@ -8,28 +8,23 @@ from pymake.plot import _markers, _colors, _linestyle
 from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score
 from sklearn.metrics import mean_squared_error
 
-import matplotlib.pyplot as plt
-
-from loguru import logger
-lgg = logger
-
-
 
 class PostCompute(ExpeFormat):
 
     # Documentation !
     _default_expe = dict(
-        _label = lambda expe: '%s %s' % (expe._alias[expe.model], expe.get('delta')) if expe.model in expe._alias else False,
+        _label=lambda expe: '%s %s' % (expe._alias[expe.model], expe.get(
+            'delta')) if expe.model in expe._alias else False,
         legend_size=10,
-        _csv_sample = 2,
-        fig_burnin = 0
+        _csv_sample=2,
+        fig_burnin=0
     )
 
     def _preprocess(self):
         pass
 
     def _to_masked(self, lst, dtype=float):
-        themask = lambda x:np.nan if x in ('--', 'None') else x
+        themask = lambda x: np.nan if x in ('--', 'None') else x
         if isinstance(lst, list):
             return ma.masked_invalid(np.array(list(map(themask, lst)), dtype=dtype))
         else:
@@ -51,10 +46,10 @@ class PostCompute(ExpeFormat):
 
         print(res)
 
-
     def compute_wsim3(self, data='test'):
+        import pickle
 
-        frontend = self.load_frontend()
+        #frontend = self.load_frontend(skip_init=True)
 
         model = self.load_model(load=True)
         theta, phi = model._reduce_latent()
@@ -65,21 +60,33 @@ class PostCompute(ExpeFormat):
         edges_data = model._edges_data
         is_symmetric = model._is_symmetric
 
-        if not ('mmsb' in self.s.model or 'wmmsb' in self.s.model):
-            qij = self.posterior(theta, phi, data)
+        if 'mmsb' in self.s.model or 'wmmsb' in self.s.model:
+            qij = model.posterior(theta, phi, data)
         else:
             qij = self._mean_weights(theta, phi, data, is_symmetric, edges_data)
 
-        wd = data[:,2].T
+        wd = data[:, 2].T
         ws = qij
 
         mse = mean_squared_error(wd, ws)
 
-        print(mse)
+        data = {"wsim3": mse}
+        fn = self.output_path + '.pk'
+        with open(fn, 'wb') as _f:
+            pickle.dump(data, _f)
 
+        print(mse, fn)
+
+    def get_wsim3(self):
+        import pickle
+        fn = self.output_path + '.pk'
+        with open(fn, 'rb') as _f:
+            data = pickle.load(_f)
+        wsim3 = data.get('wsim3')
+        return wsim3
 
     def _mean_weights(self, theta, phi, data, is_symmetric, edges_data):
-        N,K = theta.shape
+        N, K = theta.shape
         # class assignement
         c = theta.argmax(1) # @cache
 
@@ -88,28 +95,27 @@ class PostCompute(ExpeFormat):
         c_len = theta_hard.sum(0)
 
         # number of possible edges per block
-        norm = np.outer(c_len,c_len)
+        norm = np.outer(c_len, c_len)
         if not is_symmetric:
             np.fill_diagonal(norm, 2*(norm.diagonal()-c_len))
         else:
             np.fill_diagonal(norm, norm.diagonal()-c_len)
-        norm = ma.masked_where(norm<=0, norm)
+        norm = ma.masked_where(norm <= 0, norm)
 
         # Expected weight per block
-        pp = np.zeros((K,K))
+        pp = np.zeros((K, K))
         edges = edges_data
-        for i,j,w in edges:
+        for i, j, w in edges:
             pp[c[i], c[j]] += w
 
         pp = pp / norm
 
-        qij = ma.array([ pp[c[i], c[j]] for i,j,_ in data])
+        qij = ma.array([pp[c[i], c[j]] for i, j, _ in data])
 
         if ma.is_masked(qij):
             return None
         else:
             return qij
-
 
     def gen_data_matlab(self):
         from scipy.io import savemat
@@ -131,7 +137,6 @@ class PostCompute(ExpeFormat):
         expe['testset_ratio'] = testset_ratio
         expe['validset_ratio'] = validset_ratio
 
-
         # Debug how validset is computed
         #expe['testset_ratio'] -= 0.1/1.1
 
@@ -146,8 +151,8 @@ class PostCompute(ExpeFormat):
         y = frontend.adj()
 
         # set the weight
-        for i,j,w in frontend.get_edges():
-            y[i,j] = w
+        for i, j, w in frontend.get_edges():
+            y[i, j] = w
 
         # state
         seed = []
@@ -155,19 +160,19 @@ class PostCompute(ExpeFormat):
             seed.append(str(ord(c)))
         seed.append(repeat)
 
-        seed = ''.join( [chr(int(i)) for i in list(''.join(seed))])
+        seed = ''.join([chr(int(i)) for i in list(''.join(seed))])
         seed = int((hash_objects(seed)), 32) % 2**32
 
-        out = os.path.join(self.get_data_path(), 'mat') + '/'
+        out = os.path.join(self.get_data_path(), 'mat2') + '/'
         if repeat:
             out += repeat + '/'
         os.makedirs(out, exist_ok=True)
 
-        savemat(out + corpus_name + '_'+ '-'.join([training_ratio, testset_ratio, validset_ratio]) + '.mat', {'Y':y.astype(float),
-                                             'Ytest':Ytest.astype(float),
-                                             'is_symmetric': frontend.is_symmetric(),
-                                             'state': seed
-                                            })
+        savemat(out + corpus_name + '_' + '-'.join([training_ratio, testset_ratio, validset_ratio]) + '.mat', {'Y': y.astype(float),
+                                                                                                               'Ytest': Ytest.astype(float),
+                                                                                                               'is_symmetric': frontend.is_symmetric(),
+                                                                                                               'state': seed
+        })
 
     @ExpeFormat.expe_repeat
     @ExpeFormat.table()
@@ -193,8 +198,8 @@ class PostCompute(ExpeFormat):
         _it = '15'
 
         outp = '/home/dtrckd/Desktop/tt/EPM2/results'
-        format_id = "it%straining%sK%srep%s" % (_it,training_ratio,K,repeat)
-        ratio_id = ''.join(('_',str(training_ratio),'-',str(testset_ratio),'-',str(validset_ratio)))
+        format_id = "it%straining%sK%srep%s" % (_it, training_ratio, K, repeat)
+        ratio_id = ''.join(('_', str(training_ratio), '-', str(testset_ratio), '-', str(validset_ratio)))
         fnin = os.path.join(outp, corpus, 'wsim_all_'+format_id+ratio_id+'.mat')
         data = loadmat(fnin)
 
@@ -211,7 +216,6 @@ class PostCompute(ExpeFormat):
             array[loc] = value
 
         return
-
 
     def give_stats(self, meas):
         ''' from inf file. '''
@@ -236,4 +240,3 @@ class PostCompute(ExpeFormat):
                                 vals.max(), vals.min(),
                                 vals.sum())
             print(res)
-
