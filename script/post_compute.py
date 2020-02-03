@@ -17,7 +17,8 @@ class PostCompute(ExpeFormat):
             'delta')) if expe.model in expe._alias else False,
         legend_size=10,
         _csv_sample=2,
-        fig_burnin=0
+        fig_burnin=0,
+        _expe_silent=True,
     )
 
     def _preprocess(self):
@@ -168,6 +169,8 @@ class PostCompute(ExpeFormat):
             out += repeat + '/'
         os.makedirs(out, exist_ok=True)
 
+        exit()
+
         savemat(out + corpus_name + '_' + '-'.join([training_ratio, testset_ratio, validset_ratio]) + '.mat', {'Y': y.astype(float),
                                                                                                                'Ytest': Ytest.astype(float),
                                                                                                                'is_symmetric': frontend.is_symmetric(),
@@ -185,17 +188,19 @@ class PostCompute(ExpeFormat):
         testset_ratio = 20
         validset_ratio = 10
         K = 10
+        iterations = 300
 
         expe['training_ratio'] = training_ratio
         expe['testset_ratio'] = testset_ratio
         expe['validset_ratio'] = validset_ratio
         expe['K'] = K
+        expe['iterations'] = iterations
 
         corpus = expe.corpus
         repeat = expe._repeat
         training_ratio = expe.training_ratio
         K = expe.K
-        _it = '15'
+        _it = expe.iterations
 
         outp = '/home/dtrckd/Desktop/tt/EPM2/results'
         format_id = "it%straining%sK%srep%s" % (_it, training_ratio, K, repeat)
@@ -208,8 +213,14 @@ class PostCompute(ExpeFormat):
                     roc='AUCroc',
                     time_it='timing',
                    )
+        dd = data['Wreal'][0]
+        print(corpus, repeat, K)
+        print(np.unique(dd[dd > 1]))
 
         value = data[trad[z]].item()
+
+        if z == "time_it":
+            value = "%.2f" % (value / 3600)
 
         if value:
             loc = floc(expe[x], expe[y], z)

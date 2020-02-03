@@ -291,6 +291,9 @@ class Plot(PostCompute): # @DEBUG: not modular, think bettter
 
         value = self._extract_data(z, data, *args)
 
+        if z == "time_it":
+            value = "%.2f" % (float(value) / 3600)
+
         if value:
             loc = floc(expe[x], expe[y], z)
             array[loc] = value
