@@ -4,12 +4,13 @@ from pymake import ExpSpace, ExpTensor, Corpus, ExpDesign, ExpGroup
 class Aistats19(ExpDesign):
 
     _alias = {'ml.iwmmsb_scvb3': 'WMMSB-bg',
-              'ml.immsb_scvb3': 'MMSB-scvb',
-              'ml.sbm_gt': 'SBM-gt',
-              'ml.wsbm_gt': 'WSBM-gt',
+              'ml.immsb_scvb3': 'MMSB',
+              'ml.sbm_gt': 'SBM',
+              'ml.wsbm_gt': 'WSBM',
               'ml.sbm_ai': 'SBM-ai',
               'ml.wsbm_ai_n': 'WSBM-ai-n',
               'ml.wsbm_ai_p': 'WSBM-ai-p',
+              'ml.epm': 'EPM',
 
               'link-dynamic-simplewiki': 'wiki-link',
               'munmun_digg_reply': 'digg-reply',
@@ -44,6 +45,7 @@ class Aistats19(ExpDesign):
         #ticks_size = 20,
         title_size=18,
         fig_xaxis=('time_it', 'time'),
+        fig_yaxis=dict(wsim='MSE'),
 
         driver='gt', # graph-tool driver
         _write=True,
@@ -104,6 +106,7 @@ class Aistats19(ExpDesign):
                       #fig_xaxis = ('_observed_pt', 'visited edges'),
                     )
     mmsb = ExpTensor(wmmsb, model="immsb_scvb3")
+    epm = ExpTensor(wmmsb, model="epm")
 
     aistats_design_wmmsb = ExpGroup([wmmsb],
                                     corpus=net_final,
@@ -135,12 +138,45 @@ class Aistats19(ExpDesign):
                                     _refdir="ai19_1",
                              )
 
-    aistats_design_final_2 = ExpGroup([wmmsb, mmsb, wsbm_t, sbm_peixoto, wsbm_peixoto],
+    aistats_design_final_2 = ExpGroup([wmmsb, mmsb, wsbm_t, sbm_peixoto, wsbm_peixoto, epm],
                                       corpus=net_final,
                                       K=[20, 30, 50],
                                       training_ratio=[100],  # subsample the edges
                                       _refdir="ai19_1",
                                      )
+
+    #
+    #
+    # Post expe Fix
+    #
+    #
+
+    aistats_compute_zcp_w_tmp = ExpGroup([wmmsb],
+                                         corpus=net_final,
+                                         K=[20, 30, 50],
+                                         training_ratio=[100],  # subsample the edges
+                                         _refdir="ai19_1",
+                                     )
+    aistats_compute_zcp_a_tmp = ExpGroup([wsbm_3],
+                                         corpus=net_final,
+                                         K=[20, 30, 50],
+                                         training_ratio=[100],  # subsample the edges
+                                         _refdir="ai19_1",
+                                     )
+
+    aistats_compute_wsim4 = ExpGroup([wsbm_t, sbm_peixoto, wsbm_peixoto],
+                                     corpus=net_final,
+                                     K=[10],
+                                     training_ratio=[100],  # subsample the edges
+                                     _refdir="ai19_1",
+                                     )
+
+    aistats_doh = ExpGroup([epm],
+                           corpus=net_final,
+                           K=[20],
+                           training_ratio=[100],  # subsample the edges
+                           _refdir="ai19_1",
+                          )
 
     # note of dev to remove:
     #

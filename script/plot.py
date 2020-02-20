@@ -1,4 +1,5 @@
 import os
+import re
 import numpy as np
 from numpy import ma
 import matplotlib.pyplot as plt
@@ -46,10 +47,10 @@ class Plot(PostCompute): # @DEBUG: not modular, think bettter
 
         # Hook
         if self.expe.get('_refdir') == 'ai19_1':
-            if not ('mmsb' in self.s.model or 'wmmsb' in self.s.model):
-                if not 'roc2' in z:
+            if not ('mmsb' in self.s.model or 'wmmsb' in self.s.model or 'epm' in self.s.model):
+                if re.search(r'roc(?![0-9])', z):
                     z = z.replace('roc', 'roc2')
-                if not 'wsim2' in z and not 'wsim3' in z:
+                if re.search(r'wsim(?![0-9])', z):
                     z = z.replace('wsim', 'wsim2')
 
         value = None
@@ -471,10 +472,10 @@ class Plot(PostCompute): # @DEBUG: not modular, think bettter
 
         data = self.load_some()
         if not data:
-            self.log.warning('No data for expe : %s' % self.output_path)
-            return
-
-        value = self._extract_data(z, data, *args)
+            #self.log.warning('No data for expe : %s' % self.output_path)
+            value = ma.masked
+        else:
+            value = self._extract_data(z, data, *args)
 
         pos = floc(expe, z)
         if value:
@@ -543,9 +544,12 @@ class Plot(PostCompute): # @DEBUG: not modular, think bettter
                 #for i in range(2):
                 #    plt.text(x=i + i*2 - 0.5, y=12+0.1, s=labels[i], size=6)
 
-                ax.set_ylabel(z)
+                ax.set_ylabel(self.expe.get('fig_yaxis', {}).get(z, z))
                 ax.set_title(corpus)
-                ax.legend(loc="lower right", prop={'size': self.s.get('legend_size', 5)})
+                if corpus == "enron":
+                    ax.legend(loc="upper right", prop={'size': self.s.get('legend_size', 5)})
+                else:
+                    ax.legend(loc="lower right", prop={'size': self.s.get('legend_size', 5)}, bbox_to_anchor=(1.1, 0))
 
                 figs[corpus] = {'fig': fig, 'base': z+'_evo2'}
 
