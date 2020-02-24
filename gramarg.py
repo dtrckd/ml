@@ -1,5 +1,5 @@
-from functools import partial
 from pymake.core.gram import exp_append, exp_append_uniq
+from functools import partial
 
 _gram = [
     #  Expe Settings -- Context-Free
@@ -12,35 +12,35 @@ _gram = [
         nargs='*', action=partial(exp_append, _t=int),
         help='number for averaginf generative process'),
 
-    '-c','--corpus', dict(
+    '-c', '--corpus', dict(
         nargs='*', dest='corpus', action=exp_append,
         help='ID of the frontend data.'),
 
-    '-r','--random', dict(
+    '-r', '--random', dict(
         nargs='*', dest='corpus', action=exp_append,
         help='Random generation of synthetic frontend  data [uniforma|alternate|cliqueN|BA].'),
 
-    '-m','--model', dict(
-        nargs='*',dest='model', action=exp_append,
+    '-m', '--model', dict(
+        nargs='*', dest='model', action=exp_append,
         help='ID of the model.'),
 
-    '-n','--N', dict(
+    '-n', '--N', dict(
         nargs='*', action=exp_append, # str because keywords "all"
         help='Size of frontend data [int | all].'),
 
-    '-k','--K', dict(
+    '-k', '--K', dict(
         nargs='*', action=partial(exp_append, _t=int),
         help='Latent dimensions'),
 
-    '-i','--iterations', dict(
+    '-i', '--iterations', dict(
         nargs='*', action=partial(exp_append, _t=int),
         help='Max number of iterations for the optimization.'),
 
-    '--hyper',  dict(
+    '--hyper', dict(
         dest='hyper', nargs='*', action=exp_append,
         help='type of hyperparameters optimization [auto|fix|symmetric|asymmetric]'),
 
-    '--hyper-prior','--hyper_prior', dict(
+    '--hyper-prior', '--hyper_prior', dict(
         dest='hyper_prior', action=partial(exp_append_uniq, _t=float), nargs='*',
         help='Set paramters of the hyper-optimization [auto|fix|symmetric|asymmetric]'),
 
@@ -90,23 +90,23 @@ _gram = [
         help=''),
 
 
-     '--kernel', dict(
-         help='Model kernel.'),
+    '--kernel', dict(
+        help='Model kernel.'),
 
     # System
-     '--snapshot',dict(dest='snapshot_freq', type=int),
+    '--snapshot', dict(dest='snapshot_freq', type=int),
 
-     '--driver', dict(
-         help='Choose the driver to use to load data frontend.'),
+    '--driver', dict(
+        help='Choose the driver to use to load data frontend.'),
 
-    '-g', '--generative',dict(dest='_mode',
-                              action='store_const', const='generative'),
+    '-g', '--generative', dict(dest='_mode',
+                               action='store_const', const='generative'),
     '-p', '--predictive', dict(dest='_mode',
                                action='store_const', const='predictive'),
 
     '--fast', '--deactivate-measures', dict(dest='deactivate_measures',
-         action='store_true',
-         help='Do not compute measures (log-likelihood/entropy etc) during fitting to speed up the process.'),
+                                            action='store_true',
+                                            help='Do not compute measures (log-likelihood/entropy etc) during fitting to speed up the process.'),
 
 
 
