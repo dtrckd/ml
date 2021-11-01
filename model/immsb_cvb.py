@@ -168,7 +168,7 @@ class immsb_cvb(GibbsSampler):
 
             self.gamma[j, i] = qij
 
-    def compute_entropy(self):
+    def compute_entropy(self, *args, **kwargs):
         pij = self.likelihood(*self._reduce_latent())
 
         # Log-likelihood
@@ -183,7 +183,7 @@ class immsb_cvb(GibbsSampler):
 
         return entropy
 
-    def compute_entropy_t(self):
+    def compute_entropy_t(self, *args, **kwargs):
         pij = self.likelihood(*self._reduce_latent())
 
         # Log-likelihood

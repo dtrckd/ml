@@ -379,7 +379,7 @@ class ZSamplerParametric(ZSampler):
 
     def __init__(self, alpha_0, likelihood, K, alpha='asymmetric', data_t=None):
         self.K = self.K_init = self._K =  K
-        if 'alpha' is 'symmetric':
+        if 'alpha' == 'symmetric':
             alpha = np.ones(K)*1/K
         elif 'alpha' == 'asymmetric':
             alpha = np.asarray([1.0 / (i + np.sqrt(K)) for i in range(K)])

@@ -26,12 +26,9 @@ class Fit(ExpeFormat):
         frontend = self.load_frontend()
 
         ### @Debug: Obsolete / Inside model
-        alpha = expe.get('alpha', .1)
-        gmma = expe.get('gmma', .1)
-        delta = expe.get('delta', (0.5, 0.5))
-        hyperparams = {'alpha': alpha, 'delta': delta, 'gmma': gmma}
-        expe['hyperparams'] = hyperparams
-        #############################################################
+        expe['hyperparams'] = {'alpha': expe.get('alpha', .1),
+                       'delta': expe.get('gmma', .1),
+                       'gmma': expe.get('delta', (0.5, 0.5))}
 
         # Load Model
         model = self.load_model(frontend)

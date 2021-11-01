@@ -341,10 +341,9 @@ class SVB(ModelBase):
 
             self.mnb_size = self._nnz_vector[_id_mnb]
 
-            begin_it = time()
             self.sample(minibatch)
 
-            self.compute_measures(begin_it)
+            self.compute_measures()
             print('.', end='')
             self.log.info('Minibatch %d/%d, %s, Entropy: %f,  diff: %f' % (_id_mnb+1, self.chunk_len, '/'.join((self.expe.model, self.expe.corpus)),
                                                                            self._entropy, self.entropy_diff))
@@ -408,7 +407,7 @@ class GibbsSampler(ModelBase):
         super(GibbsSampler, self).__init__(expe, frontend)
 
     #@mmm
-    def compute_measures(self, begin_it=0):
+    def compute_measures(self, *args, begin_it=0, **kwargs):
 
         if self.expe.get('deactivate_measures'):
             return
@@ -450,7 +449,7 @@ class GibbsSampler(ModelBase):
                 if _it % self.thinning == 0:
                     self.samples.append([self._theta, self._phi])
 
-            self.compute_measures(begin_it)
+            self.compute_measures(begin_it=begin_it)
             print('.', end='')
             self.log.info('iteration %d, %s, Entropy: %f \t\t K=%d  alpha: %f gamma: %f' % (_it, '/'.join((self.expe.model, self.expe.corpus)),
                                                                                             self._entropy, self._K, self._alpha, self._gmma))

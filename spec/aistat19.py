@@ -45,7 +45,7 @@ class Aistats19(ExpDesign):
         #ticks_size = 20,
         title_size=18,
         fig_xaxis=('time_it', 'time'),
-        fig_yaxis=dict(wsim='MSE'),
+        fig_yaxis=dict(wsim='MSE', wsim3='MSE'),
 
         driver='gt', # graph-tool driver
         _write=True,
@@ -143,6 +143,13 @@ class Aistats19(ExpDesign):
                                       K=[20, 30, 50],
                                       training_ratio=[100],  # subsample the edges
                                       _refdir="ai19_1",
+                                     )
+
+    aistats_design_final2_epm = ExpGroup([epm],
+                                         corpus=net_final,
+                                         K=[20, 30, 50],
+                                         training_ratio=[100],  # subsample the edges
+                                         _refdir="ai19_1",
                                      )
 
     #

@@ -342,7 +342,7 @@ class immsb_scvb(SVB):
         self._timestep_b += 1
 
 
-    def compute_entropy(self):
+    def compute_entropy(self, *args, **kwargs ):
         pij = self.likelihood(*self._reduce_latent())
 
         # Log-likelihood
@@ -359,7 +359,7 @@ class immsb_scvb(SVB):
 
         return entropy
 
-    def compute_entropy_t(self):
+    def compute_entropy_t(self, *args, **kwargs):
         pij = self.likelihood(*self._reduce_latent())
 
         # Log-likelihood
@@ -374,7 +374,7 @@ class immsb_scvb(SVB):
 
         return entropy_t
 
-    def compute_elbo(self):
+    def compute_elbo(self, *args, **kwargs):
 
         pij = self.likelihood(*self._reduce_latent())
 

@@ -24,10 +24,6 @@ _gram = [
         nargs='*', dest='model', action=exp_append,
         help='ID of the model.'),
 
-    '-n', '--N', dict(
-        nargs='*', action=exp_append, # str because keywords "all"
-        help='Size of frontend data [int | all].'),
-
     '-k', '--K', dict(
         nargs='*', action=partial(exp_append, _t=int),
         help='Latent dimensions'),

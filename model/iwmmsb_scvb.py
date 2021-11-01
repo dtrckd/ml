@@ -252,7 +252,7 @@ class iwmmsb_scvb(SVB):
         #likelihood = theta.dot(kern).dot(theta.T)
         return likelihood
 
-    def compute_entropy(self):
+    def compute_entropy(self, *args, **kwargs):
         pij = self.likelihood(*self._reduce_latent())
 
         # Log-likelihood
@@ -266,7 +266,7 @@ class iwmmsb_scvb(SVB):
 
         return entropy
 
-    def compute_entropy_t(self):
+    def compute_entropy_t(self, *args, **kwargs):
         pij = self.likelihood(*self._reduce_latent())
 
         # Log-likelihood
@@ -280,15 +280,15 @@ class iwmmsb_scvb(SVB):
 
         return entropy_t
 
-    def compute_elbo(self):
+    def compute_elbo(self, *args, **kwargs):
         # how to compute elbo for all possible links weights, mean?
         return None
 
-    def compute_roc(self):
+    def compute_roc(self, *args, **kwargs):
         return None
 
 
-    def update_hyper(self, hyper):
+    def update_hyper(self, *args, **kwargs):
         pass
 
     def generate(self, N=None, K=None, hyperparams=None, mode='predictive', symmetric=True, **kwargs):
